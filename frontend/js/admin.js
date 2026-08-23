@@ -47,7 +47,7 @@ const Admin = (() => {
     tab: 'dashboard',
     status: '', type: '', department: '', priority: '',
     sort: 'created_at', order: 'desc',
-    query: '', page: 1, selectedId: null, total: 0,
+    query: '', page: 1, selectedId: null,
   };
   let searchTimer = null;
 
@@ -265,10 +265,19 @@ const Admin = (() => {
       host.append(el('button', {
         type: 'button',
         class: `tbl-row${row.id === state.selectedId ? ' is-selected' : ''}`,
+        dataset: { id: row.id },
         onclick: () => select(row.id),
       }, [
         el('span', { class: 'tbl-ref', text: row.reference_no }),
         el('span', { class: 'tbl-title', title: row.title, text: row.title }),
+        el('span', { class: 'tbl-citizen' }, [
+          el('span', {
+            class: 'tbl-citizen-name',
+            title: row.citizen_name,
+            text: row.citizen_name,
+          }),
+          el('span', { class: 'tbl-citizen-phone', text: row.citizen_phone }),
+        ]),
         el('span', {
           class: 'tbl-dept',
           text: row.department ? row.department.name_ar : '—',
@@ -305,10 +314,9 @@ const Admin = (() => {
     table.classList.add('is-loading');
     try {
       const page = await API.list(listParams());
-      state.total = page.total;
       renderRows(page);
-      // Keep a selection visible; fall back to the first row on this page.
-      if (!state.selectedId && page.items.length) select(page.items[0].id);
+      // The detail panel stays on its placeholder until staff actually pick
+      // a row — no complaint is "selected" just because the table loaded.
     } catch (error) {
       toast(error.message, true);
     } finally {
@@ -316,26 +324,40 @@ const Admin = (() => {
     }
   }
 
-  /* -------------------------------------------------------------- detail */
+  /* ---------------------------------------------------------- focus mode */
+
+  // The row that opened the overlay, so keyboard focus can return there.
+  let focusOrigin = null;
 
   async function select(id) {
     state.selectedId = id;
-    document.querySelectorAll('.tbl-row').forEach((row) => row.classList.remove('is-selected'));
+    focusOrigin = document.activeElement;
+    // Highlight straight from the DOM — the old version refetched the whole
+    // page just to work out which row to mark.
+    document.querySelectorAll('.tbl-row').forEach((row) =>
+      row.classList.toggle('is-selected', row.dataset.id === String(id)));
     try {
       renderDetail(await API.get(id));
-      await loadTableSelectionOnly();
+      openFocus();
     } catch (error) {
       toast(error.message, true);
     }
   }
 
-  /* Re-highlights the selected row without a second network round trip. */
-  async function loadTableSelectionOnly() {
-    const rows = document.querySelectorAll('.tbl-row');
-    const page = await API.list(listParams());
-    page.items.forEach((item, index) => {
-      if (rows[index]) rows[index].classList.toggle('is-selected', item.id === state.selectedId);
-    });
+  function openFocus() {
+    document.getElementById('focus-overlay').hidden = false;
+    // Stop the page behind the overlay from scrolling with it.
+    document.body.style.overflow = 'hidden';
+    document.getElementById('focus-close').focus();
+  }
+
+  function closeFocus() {
+    const overlay = document.getElementById('focus-overlay');
+    if (overlay.hidden) return;
+    overlay.hidden = true;
+    document.body.style.overflow = '';
+    if (focusOrigin && document.contains(focusOrigin)) focusOrigin.focus();
+    focusOrigin = null;
   }
 
   function eventText(event) {
@@ -379,24 +401,32 @@ const Admin = (() => {
         text: App.statusLabel(complaint.status),
       }),
     ]));
-    host.append(el('h2', { text: complaint.title }));
+    host.append(el('h2', { id: 'focus-heading', text: complaint.title }));
     host.append(el('p', { class: 'detail-desc', text: complaint.description }));
 
+    // [label, value, colour, forceLtr] — phone numbers and email addresses
+    // render left-to-right even inside the RTL card.
     const cells = [
-      ['التصنيف', App.typeLabel(complaint.type), null],
-      ['المحافظة', complaint.governorate || '—', null],
-      ['الأولوية', App.priorityLabel(complaint.priority), PRIORITY_COLORS[complaint.priority]],
-      ['المسؤول', complaint.assignee || '—', null],
+      ['مقدّم الشكوى', complaint.citizen_name, null, false],
+      ['رقم الموبايل', complaint.citizen_phone, null, true],
+      ['التصنيف', App.typeLabel(complaint.type), null, false],
+      ['المحافظة', complaint.governorate || '—', null, false],
+      ['الأولوية', App.priorityLabel(complaint.priority),
+       PRIORITY_COLORS[complaint.priority], false],
+      ['المسؤول', complaint.assignee || '—', null, false],
     ];
+    if (complaint.citizen_email) {
+      cells.push(['البريد الإلكتروني', complaint.citizen_email, null, true]);
+    }
     if (complaint.location_detail) {
-      cells.push(['العنوان التفصيلي', complaint.location_detail, null]);
+      cells.push(['العنوان التفصيلي', complaint.location_detail, null, false]);
     }
     host.append(el('div', { class: 'detail-grid' },
-      cells.map(([label, value, color]) =>
+      cells.map(([label, value, color, ltr]) =>
         el('div', { class: 'detail-cell' }, [
           el('div', { class: 'detail-cell-label', text: label }),
           el('div', {
-            class: 'detail-cell-value',
+            class: `detail-cell-value${ltr ? ' is-ltr' : ''}`,
             style: color ? `color:${color}` : null,
             text: value,
           }),
@@ -498,6 +528,7 @@ const Admin = (() => {
 
   function setTab(tab) {
     state.tab = tab;
+    closeFocus();
     document.getElementById('admin-dashboard-view').hidden = tab !== 'dashboard';
     document.getElementById('admin-inbox-view').hidden = tab !== 'inbox';
     document.querySelectorAll('[data-admin-tab]').forEach((item) =>
@@ -516,11 +547,6 @@ const Admin = (() => {
 
   /* ---------------------------------------------------------------- init */
 
-  function renderEmptyDetail() {
-    clear(document.getElementById('detail-card')).append(
-      el('div', { class: 'detail-empty', text: 'اختر شكوى من القائمة لعرض تفاصيلها.' }));
-  }
-
   function renderDashboard(stats) {
     renderKpis(stats);
     renderTypeBars(stats);
@@ -534,7 +560,15 @@ const Admin = (() => {
   function init() {
     renderStatusChips();
     updateFilterUI();
-    renderEmptyDetail();
+
+    document.getElementById('focus-close').addEventListener('click', closeFocus);
+    document.getElementById('focus-overlay').addEventListener('mousedown', (event) => {
+      // Backdrop only — a click that starts inside the panel must not close it.
+      if (event.target.id === 'focus-overlay') closeFocus();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeFocus();
+    });
 
     document.querySelectorAll('[data-admin-tab]').forEach((item) => {
       item.addEventListener('click', () => setTab(item.dataset.adminTab));
@@ -581,5 +615,5 @@ const Admin = (() => {
     });
   }
 
-  return { init, fillFilterOptions, renderDashboard, loadTable, onEnter, select };
+  return { init, fillFilterOptions, renderDashboard, loadTable, onEnter, select, closeFocus };
 })();

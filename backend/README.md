@@ -31,7 +31,7 @@ python test_api.py
 python test_live.py
 ```
 
-`test_api.py` runs 77 checks in-process against a throwaway database.
+`test_api.py` runs 96 checks in-process against a throwaway database.
 `test_live.py` starts a real uvicorn server and fires overlapping requests at
 it — in-process tests serialise everything and cannot catch threadpool or
 SQLite locking problems.
@@ -110,13 +110,30 @@ Transitions are enforced server-side (`ALLOWED_TRANSITIONS`); an illegal move
 returns 400 and `مغلقة` is terminal. Reaching `تم الحل` stamps `resolved_at`,
 `مغلقة` stamps `closed_at`, and both feed the average-resolution metric.
 
-## SLA
+## SLA and automatic escalation
 
 `SLA_HOURS` in `domain.py` sets the resolution window per priority — عالية 24h,
 متوسطة 72h, منخفضة 120h. A complaint past 75% of its window counts as
 *قاربت المهلة* and past 100% as *متأخرة*. Resolved complaints are measured
 against how long they actually took, open ones against how long they have been
 waiting. This drives the compliance bar and the overdue KPI.
+
+A complaint left open too long **raises its own priority**. A background sweep
+runs every 60 seconds (`ESCALATION_INTERVAL_SECONDS` in `main.py`, plus one
+pass at startup) and applies `escalate_priority()` from `domain.py`:
+
+| Waiting longer than | Effect |
+| --- | --- |
+| the متوسطة window (72h) | anything below عالية becomes عالية |
+| the عالية window (24h) | منخفضة becomes متوسطة |
+
+The rule reuses the SLA numbers rather than inventing a second set of
+thresholds. Escalation only ever raises a priority, never lowers one a human
+set deliberately, and skips complaints that are already عالية, تم الحل or
+مغلقة. Each bump writes a normal `priority_changed` event with `actor="system"`
+and a note saying how long the complaint had waited, so it appears in the
+update log exactly like a human-made change. The sweep is idempotent — running
+it twice in a row changes nothing the second time.
 
 ## Endpoints
 
@@ -139,9 +156,12 @@ waiting. This drives the compliance bar and the overdue KPI.
 | GET | `/api/complaints/{id}/events` | The update log |
 
 List parameters: `status`, `type`, `priority` (repeatable for multi-select),
-`department`, `assignee`, `q` (title, description, reference, citizen name and
-phone), `sort` (`created_at`, `updated_at`, `priority`, `status`,
-`reference_no`), `order`, `page`, `per_page` (max 100).
+`department`, `assignee`, `q`, `sort` (`created_at`, `updated_at`, `priority`,
+`status`, `reference_no`), `order`, `page`, `per_page` (max 100).
+
+`q` searches the title, description, reference number, citizen name, phone and
+detailed address. Phone matching strips separators from both sides, so
+`0955 512-345` finds a number stored as `0955512345`.
 
 ### Attachments
 | Method | Path | Purpose |

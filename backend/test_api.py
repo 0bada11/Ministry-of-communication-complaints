@@ -297,6 +297,20 @@ def main() -> int:
               client.get("/api/complaints?q=فاتورة").json()["total"] >= 1)
         check("reference search works",
               client.get(f"/api/complaints?q={complaint['reference_no']}").json()["total"] == 1)
+        check("search by citizen name",
+              client.get("/api/complaints?q=فاطمة العلي").json()["total"] == 1)
+        check("search by phone number",
+              client.get("/api/complaints?q=0955555555").json()["total"] == 1)
+        check("phone search ignores separators",
+              client.get("/api/complaints?q=0955-555 555").json()["total"] == 1)
+        check("phone search matches a stored +963 prefix",
+              client.get("/api/complaints?q=963911234567").json()["total"] == 1)
+        check("summary rows carry the citizen phone",
+              all(item.get("citizen_phone")
+                  for item in client.get("/api/complaints?per_page=5").json()["items"]))
+        check("short digit strings do not trigger phone matching",
+              client.get("/api/complaints?q=09").json()["total"]
+              <= client.get("/api/complaints?per_page=100").json()["total"])
         check("priority sort puts high first",
               client.get("/api/complaints?sort=priority&order=asc").json()
               ["items"][0]["priority"] == "high")

@@ -1,5 +1,6 @@
 """All SQL lives here. Routes stay thin; queries stay reviewable in one place."""
 
+import re
 import sqlite3
 from datetime import datetime, timedelta, timezone
 
@@ -196,6 +197,12 @@ def open_complaints_with_age(conn: sqlite3.Connection) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+# Strips the separators people type into a phone number, so a stored
+# "+963 955-512345" compares equal to a searched "0955512345".
+_PHONE_DIGITS = (
+    "REPLACE(REPLACE(REPLACE(REPLACE(c.citizen_phone,' ',''),'-',''),'(',''),')','')"
+)
+
 # Whitelist of sortable columns — the sort key is interpolated into SQL, so it
 # must never come straight from the query string.
 SORTABLE = {
@@ -245,11 +252,22 @@ def search_complaints(
         where.append("c.assignee = :assignee")
         params["assignee"] = assignee
     if q:
-        where.append(
-            "(c.title LIKE :q OR c.description LIKE :q OR c.reference_no LIKE :q"
-            " OR c.citizen_name LIKE :q OR c.citizen_phone LIKE :q)"
-        )
+        conditions = [
+            "c.title LIKE :q", "c.description LIKE :q", "c.reference_no LIKE :q",
+            "c.citizen_name LIKE :q", "c.citizen_phone LIKE :q",
+            "c.location_detail LIKE :q",
+        ]
         params["q"] = f"%{q.strip()}%"
+
+        # Staff paste phone numbers with spaces, dashes or a +963 prefix. Strip
+        # every separator from both the stored number and the query so
+        # "0955 512 345" still finds "0955512345".
+        digits = re.sub(r"\D", "", q)
+        if len(digits) >= 4:
+            conditions.append(f"{_PHONE_DIGITS} LIKE :qphone")
+            params["qphone"] = f"%{digits}%"
+
+        where.append(f"({' OR '.join(conditions)})")
 
     clause = f"WHERE {' AND '.join(where)}" if where else ""
 

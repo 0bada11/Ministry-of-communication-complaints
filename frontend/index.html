@@ -304,38 +304,44 @@
       </div>
     </div>
 
-    <!-- الشكاوى الواردة: search, filter, and manage individual complaints -->
+    <!-- الشكاوى الواردة: search, filter, and manage individual complaints.
+         The table spans the full width; clicking a row opens the complaint in
+         the focus overlay below rather than a cramped side panel. -->
     <div id="admin-inbox-view" hidden>
-      <div class="work-row">
-        <div class="table-card">
-          <div class="table-tools">
-            <input id="admin-search" placeholder="بحث برقم مرجعي أو كلمة أو اسم مواطن" autocomplete="off">
-            <select id="filter-type" class="mini-select" aria-label="التصنيف"></select>
-            <select id="filter-department" class="mini-select" aria-label="الدائرة"></select>
-            <select id="filter-priority" class="mini-select" aria-label="الأولوية"></select>
-            <select id="filter-sort" class="mini-select" aria-label="الترتيب">
-              <option value="created_at:desc">الأحدث أولاً</option>
-              <option value="created_at:asc">الأقدم أولاً</option>
-              <option value="priority:asc">الأولوية أولاً</option>
-            </select>
-            <button type="button" class="filter-clear" id="filter-clear" hidden>مسح الفلاتر <span id="filter-count"></span></button>
-          </div>
-          <div class="table-filters-row" id="status-chips"></div>
-          <div class="tbl-head">
-            <span>الرقم المرجعي</span><span>الموضوع</span><span>الدائرة</span><span>الأولوية</span><span>الحالة</span>
-          </div>
-          <div id="tbl-body"></div>
-          <div class="tbl-foot">
-            <span id="tbl-count"></span>
-            <div class="pager" id="pager"></div>
-          </div>
+      <div class="table-card">
+        <div class="table-tools">
+          <input id="admin-search" placeholder="بحث برقم مرجعي أو اسم المواطن أو رقم الموبايل" autocomplete="off">
+          <select id="filter-type" class="mini-select" aria-label="التصنيف"></select>
+          <select id="filter-department" class="mini-select" aria-label="الدائرة"></select>
+          <select id="filter-priority" class="mini-select" aria-label="الأولوية"></select>
+          <select id="filter-sort" class="mini-select" aria-label="الترتيب">
+            <option value="created_at:desc">الأحدث أولاً</option>
+            <option value="created_at:asc">الأقدم أولاً</option>
+            <option value="priority:asc">الأولوية أولاً</option>
+          </select>
+          <button type="button" class="filter-clear" id="filter-clear" hidden>مسح الفلاتر <span id="filter-count"></span></button>
         </div>
-
-        <div class="detail-card" id="detail-card"></div>
+        <div class="table-filters-row" id="status-chips"></div>
+        <div class="tbl-head">
+          <span>الرقم المرجعي</span><span>الموضوع</span><span>مقدّم الشكوى</span><span>الدائرة</span><span>الأولوية</span><span>الحالة</span>
+        </div>
+        <div id="tbl-body"></div>
+        <div class="tbl-foot">
+          <span id="tbl-count"></span>
+          <div class="pager" id="pager"></div>
+        </div>
       </div>
     </div>
   </div>
 </main>
+
+<!-- Focus mode: one complaint, full attention. Opened from a table row. -->
+<div class="focus-overlay" id="focus-overlay" hidden>
+  <div class="focus-panel" role="dialog" aria-modal="true" aria-labelledby="focus-heading">
+    <button type="button" class="focus-close" id="focus-close" aria-label="إغلاق">✕</button>
+    <div class="detail-card" id="detail-card"></div>
+  </div>
+</div>
 
 <footer class="sitefoot">
   <div class="sitefoot-brand">

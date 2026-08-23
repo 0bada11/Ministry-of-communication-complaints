@@ -780,12 +780,6 @@ input, select, textarea, button { font-family: inherit; }
 }
 .sla-legend-item i { width: 8px; height: 8px; border-radius: 2px; display: block; }
 
-.work-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
-  gap: 18px;
-  align-items: start;
-}
 .table-card {
   background: #fff;
   border: 1px solid var(--line);
@@ -869,9 +863,9 @@ input, select, textarea, button { font-family: inherit; }
 .tbl-head,
 .tbl-row {
   display: grid;
-  grid-template-columns: 112px minmax(160px, 1fr) 130px 92px 108px;
+  grid-template-columns: 112px minmax(160px, 1fr) 150px 130px 92px 108px;
   gap: 0;
-  min-width: 640px;
+  min-width: 790px;
 }
 .tbl-head {
   background: var(--sand);
@@ -903,6 +897,28 @@ input, select, textarea, button { font-family: inherit; }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.tbl-citizen {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-left: 12px;
+}
+.tbl-citizen-name {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tbl-citizen-phone {
+  font-size: 11.5px;
+  color: var(--muted-light);
+  /* Latin digits stay left-to-right inside the RTL row. */
+  direction: ltr;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 .tbl-dept { font-size: 12.5px; color: var(--muted); }
 .tbl-pri { font-size: 12.5px; font-weight: 600; white-space: nowrap; }
@@ -967,6 +983,12 @@ input, select, textarea, button { font-family: inherit; }
 .detail-cell { background: var(--page); border-radius: 2px; padding: 11px; }
 .detail-cell-label { font-size: 11.5px; color: var(--muted-light); margin-bottom: 4px; }
 .detail-cell-value { font-size: 13px; color: var(--forest-800); font-weight: 600; }
+.detail-cell-value.is-ltr {
+  direction: ltr;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  word-break: break-all;
+}
 .detail-actions { display: flex; gap: 8px; margin-bottom: 20px; }
 .detail-actions .advance {
   flex: 1;
@@ -1010,7 +1032,55 @@ input, select, textarea, button { font-family: inherit; }
 .timeline-body { display: flex; flex-direction: column; gap: 3px; }
 .timeline-text { font-size: 13px; color: var(--ink); font-weight: 500; }
 .timeline-meta { font-size: 11.5px; color: var(--muted-light); }
-.detail-empty { padding: 40px 10px; text-align: center; color: var(--muted-light); font-size: 13.5px; }
+
+/* ----------------------------------------------------------- focus mode */
+
+.focus-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 38, 35, .55);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 20px;
+  overflow-y: auto;
+  z-index: 40;
+  animation: focus-fade .16s ease-out;
+}
+.focus-panel {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  animation: focus-rise .18s ease-out;
+}
+/* The detail card keeps its own styling; the panel only positions it. */
+.focus-panel .detail-card {
+  box-shadow: 0 18px 50px rgba(0, 38, 35, .3);
+  padding: 26px 28px;
+}
+.focus-close {
+  position: absolute;
+  top: -34px;
+  left: 0;
+  background: transparent;
+  border: 0;
+  color: var(--sand);
+  font-size: 18px;
+  line-height: 1;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.focus-close:hover { background: rgba(237, 235, 224, .15); }
+
+@keyframes focus-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes focus-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .focus-overlay, .focus-panel { animation: none; }
+}
 
 /* --------------------------------------------------------------- utility */
 
@@ -1046,9 +1116,10 @@ input, select, textarea, button { font-family: inherit; }
   .admin-main { grid-template-columns: minmax(0, 1fr); }
   /* The auto-fit minimums are wider than a phone; collapse to one column so
      only the wide table scrolls, inside its own container. */
-  .chart-row,
-  .work-row { grid-template-columns: minmax(0, 1fr); }
+  .chart-row { grid-template-columns: minmax(0, 1fr); }
   .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+  .focus-overlay { padding: 44px 12px 20px; }
+  .focus-close { top: -32px; }
   .admin-side { flex-direction: row; overflow-x: auto; padding: 0; }
   .admin-side-head, .admin-side-user { display: none; }
   .admin-side-item { white-space: nowrap; }

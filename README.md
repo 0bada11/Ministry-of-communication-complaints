@@ -45,7 +45,7 @@ cd backend && python test_api.py
 cd backend && python test_live.py
 ```
 
-77 in-process checks over the whole API, plus 10 checks that run against a real
+96 in-process checks over the whole API, plus 10 checks that run against a real
 uvicorn server to cover concurrency.
 
 ---
@@ -57,16 +57,27 @@ statistics, the six complaint categories (each showing its responsible
 department), and the four-step explanation of how a complaint is handled.
 Clicking a category opens the form with that type preselected.
 
-**تقديم شكوى** — the submission form: type, governorate, title, description with
-a 600-character counter, priority, drag-and-drop attachments, and contact
-details. Validates inline in Arabic, then shows a receipt with the reference
-number, the classification, the assigned department, and a warning if a similar
-complaint already exists.
+**تقديم شكوى** — the submission form: type, governorate, a detailed address
+(street, building number, floor, nearest landmark), title, description with a
+600-character counter, priority, drag-and-drop attachments, and contact details.
+Validates inline in Arabic, then shows a receipt with the reference number, the
+classification, the assigned department, and a warning if a similar complaint
+already exists.
 
-**لوحة الإدارة** — the staff dashboard: five KPI cards, complaints by category,
-status distribution, a 14-day intake trend, SLA compliance, and a searchable,
-filterable, paginated table wired to a detail panel that advances status,
-re-routes to another department, and shows the full update log.
+**لوحة الإدارة** — split into two tabs, matching how the work actually divides:
+
+- **لوحة المؤشرات** — reporting only. Five KPI cards, complaints by category,
+  status distribution, a 14-day intake trend and SLA compliance. No
+  per-complaint actions live here.
+- **الشكاوى الواردة** — the working queue. A full-width table showing each
+  complaint's reference, subject, citizen name and phone, department, priority
+  and status. Search covers reference, subject, citizen name, phone and address;
+  filters cover status, category, department, priority and sort order, with a
+  badge counting how many are active and one click to clear them. Selecting a
+  row opens the complaint in **focus mode** — a full overlay with its contact
+  details, address, attachments and complete update log, plus the buttons that
+  advance its status or re-route it. Closes on Esc, backdrop click or the close
+  button.
 
 ## Architecture
 
@@ -78,7 +89,7 @@ frontend/                 static, no build step
   js/format.js            Arabic numerals, dates, DOM helpers
   js/home.js              stats strip, category cards, tracking
   js/submit.js            form, validation, attachments, receipt
-  js/admin.js             KPIs, charts, table, detail panel
+  js/admin.js             KPIs, charts, queue table, filters, focus mode
   js/app.js               routing and shared label lookups
 
 backend/                  FastAPI + SQLite
@@ -111,13 +122,13 @@ rules, the SLA model and the concurrency notes.
 | وصف المشكلة | `description`, 600-character limit enforced both sides |
 | نوع الشكوى | Six types, auto-classified or chosen by the citizen |
 | المرفقات | Up to 5 files, drag-and-drop, stored under random names |
-| الأولوية | Three levels, suggested from urgency wording |
+| الأولوية | Three levels, suggested from urgency wording, escalated automatically when a complaint waits too long |
 | حالة الشكوى | Five statuses with server-enforced transitions |
 | سجل التحديثات | Append-only `events` table, rendered as the timeline |
 | رقم مرجعي | Sequential `MOCT-2026-014287`, used by public tracking |
 | التوجيه للجهة المسؤولة | Routing table from type to department, plus manual re-route |
 | إحصائيات | `/api/stats` — KPIs, breakdowns, SLA compliance, intake trend |
-| Dashboard | لوحة الإدارة |
+| Dashboard | لوحة المؤشرات (charts) + الشكاوى الواردة (queue) |
 
 ## Design decisions worth knowing
 
@@ -140,6 +151,15 @@ rules, the SLA model and the concurrency notes.
 - **A responsive breakpoint was added below 900px.** The prototype is
   desktop-only and overflows on narrow screens. Nothing changes at desktop
   width.
+- **Priority escalates on age, never downward.** A complaint waiting longer
+  than the متوسطة SLA window becomes عالية; one waiting longer than the عالية
+  window is lifted from منخفضة to متوسطة. The thresholds reuse the existing SLA
+  numbers instead of introducing a second set, and the sweep never lowers a
+  priority a person set deliberately. See [backend/README.md](backend/README.md).
+- **Managing a complaint moved out of the dashboard.** The prototype put a
+  cramped detail panel beside the table; complaint handling now lives in the
+  الشكاوى الواردة tab, and opening one uses a focus overlay so the full history
+  and contact details fit without scrolling a 430px column.
 
 ## Not included
 

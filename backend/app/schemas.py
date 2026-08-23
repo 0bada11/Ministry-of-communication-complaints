@@ -102,6 +102,7 @@ class ComplaintSummary(BaseModel):
     id: int
     reference_no: str
     citizen_name: str
+    citizen_phone: str
     title: str
     type: ComplaintType
     priority: Priority

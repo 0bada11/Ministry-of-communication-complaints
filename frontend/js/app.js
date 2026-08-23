@@ -63,6 +63,10 @@ const App = (() => {
       // Only reloads the table if the inbox tab is the one showing — the
       // dashboard tab needs nothing beyond the stats refresh above.
       Admin.onEnter();
+    } else if (screen !== 'admin') {
+      // The focus overlay is position:fixed, so it would otherwise hang over
+      // whichever screen the user navigated to.
+      Admin.closeFocus();
     }
 
     // Assigning the hash re-enters through hashchange, which is why that
