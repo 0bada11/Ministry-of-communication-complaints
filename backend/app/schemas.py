@@ -70,6 +70,8 @@ class DepartmentOut(BaseModel):
     code: str
     name_ar: str
     name_en: str
+    # The problem domain this entity owns — shown to staff when re-routing.
+    scope_ar: str | None = None
 
 
 class ComplaintOut(BaseModel):

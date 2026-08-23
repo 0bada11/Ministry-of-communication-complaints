@@ -45,7 +45,7 @@ cd backend && python test_api.py
 cd backend && python test_live.py
 ```
 
-96 in-process checks over the whole API, plus 10 checks that run against a real
+99 in-process checks over the whole API, plus 10 checks that run against a real
 uvicorn server to cover concurrency.
 
 ---
@@ -53,8 +53,8 @@ uvicorn server to cover concurrency.
 ## The three screens
 
 **الرئيسية** — hero with a reference-number tracking box, live platform
-statistics, the six complaint categories (each showing its responsible
-department), and the four-step explanation of how a complaint is handled.
+statistics, the twelve complaint categories (each showing the entity
+responsible for it), and the four-step explanation of how a complaint is handled.
 Clicking a category opens the form with that type preselected.
 
 **تقديم شكوى** — the submission form: type, governorate, a detailed address
@@ -121,13 +121,13 @@ rules, the SLA model and the concurrency notes.
 | --- | --- |
 | إنشاء شكوى | Submit form → `POST /api/complaints` |
 | وصف المشكلة | `description`, 600-character limit enforced both sides |
-| نوع الشكوى | Six types, auto-classified or chosen by the citizen |
+| نوع الشكوى | Twelve types, auto-classified or chosen by the citizen |
 | المرفقات | Up to 5 files, drag-and-drop, stored under random names |
 | الأولوية | Three levels, suggested from urgency wording, escalated automatically when a complaint waits too long |
 | حالة الشكوى | Five statuses with server-enforced transitions |
 | سجل التحديثات | Append-only `events` table, rendered as the timeline |
 | رقم مرجعي | Sequential `MOCT-2026-014287`, used by public tracking |
-| التوجيه للجهة المسؤولة | Routing table from type to department, plus manual re-route |
+| التوجيه للجهة المسؤولة | Routing table from type to one of seven entities, plus manual re-route |
 | إحصائيات | `/api/stats` — KPIs, breakdowns, SLA compliance, intake trend |
 | Dashboard | لوحة المؤشرات (charts) + الشكاوى الواردة (queue) |
 
@@ -181,10 +181,19 @@ sequenced off a completion callback would otherwise hang.
 ## Design decisions worth knowing
 
 - **The category cards are the canonical type list.** The prototype contained
-  two different lists — six cards and six dropdown options that did not match,
-  so clicking a card set the dropdown to a value it did not contain. The cards
-  won (they carry codes, descriptions and departments) and the dropdown now
-  shows the same six names, which fixes that flow.
+  two different lists — cards and dropdown options that did not match, so
+  clicking a card set the dropdown to a value it did not contain. The cards won
+  (they carry codes, descriptions and owning entities) and the dropdown shows
+  exactly the same names, which fixes that flow.
+- **Twelve types, not six, because there are seven entities.** Four of the
+  ministry's entities — digital transformation, information technology,
+  cybersecurity, and data and statistics — own domains no telecom-only category
+  touches. Swapping the departments alone would have left those four with a
+  permanently empty queue, so the categories were extended to cover each stated
+  domain. The home grid stays three columns and becomes 3×4.
+- **The dashboard's category chart shows the top six.** It sits beside the donut
+  in a stretched row; all twelve bars would run to twice the height of its
+  neighbours. The full breakdown stays in `/api/stats` and in the CSV export.
 - **Reference numbers use Latin digits** (`MOCT-2026-014287`) so they can be
   copied and retyped into the tracking box. Statistics and dates use
   Arabic-Indic digits exactly as designed.

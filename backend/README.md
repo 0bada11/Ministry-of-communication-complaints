@@ -31,7 +31,7 @@ python test_api.py
 python test_live.py
 ```
 
-`test_api.py` runs 96 checks in-process against a throwaway database.
+`test_api.py` runs 99 checks in-process against a throwaway database.
 `test_live.py` starts a real uvicorn server and fires overlapping requests at
 it — in-process tests serialise everything and cannot catch threadpool or
 SQLite locking problems.
@@ -55,22 +55,44 @@ The database and uploads are created under `backend/data/` (override with the
 
 - **complaints** — `reference_no`, citizen details, type, priority, status,
   owning department, assignee, resolution, timestamps.
-- **departments** — the six responsible entities, seeded on first run.
+- **departments** — the seven responsible entities and the domain each owns,
+  reconciled against `domain.DEPARTMENTS` on every start: renames update in
+  place so complaints keep their routing, and a retired department is only
+  removed once nothing references it.
 - **attachments** — files on disk plus their metadata.
 - **events** — the append-only update log; every change writes a row here.
 
 ## Vocabulary
 
-Six complaint types, each routed to one department:
+Seven entities receive complaints, each owning a stated problem domain:
 
-| Code | Type | Department |
+| Code | Entity | Domain |
 | --- | --- | --- |
-| C-01 | انقطاع خدمة الإنترنت | الشركة السورية للاتصالات |
-| C-02 | بطء السرعة وجودة الخدمة | دائرة جودة الخدمة |
-| C-03 | الفواتير والرصيد | الدائرة المالية |
-| C-04 | الهاتف الأرضي | دائرة الشبكات الثابتة |
-| C-05 | الخدمات الحكومية الرقمية | الحكومة الإلكترونية |
-| C-06 | استفسار أو مقترح | مكتب خدمة المواطن |
+| `digital_transformation` | مديرية التحول الرقمي | رقمنة الخدمات الحكومية، أتمتة المعاملات، وربط الجهات الحكومية |
+| `information_technology` | مديرية تقانة المعلومات | الأنظمة الحكومية، قواعد البيانات، والتكامل بين الأنظمة |
+| `telecommunications` | مديرية الاتصالات | مشاكل الاتصالات، جودة الخدمة، البنية التحتية، وتغطية الشبكات |
+| `e_government` | مديرية المعلوماتية والحكومة الإلكترونية | تطوير البوابات والمنصات الحكومية والخدمات الإلكترونية |
+| `cybersecurity` | الجهات المعنية بالأمن السيبراني | حماية البيانات والأنظمة الحكومية، واكتشاف التهديدات |
+| `data_statistics` | الجهات المعنية بالبيانات والإحصاء الرقمي | جمع البيانات، تحليلها، ولوحات المعلومات لدعم القرار |
+| `affiliated_operators` | الجهات التابعة للوزارة ومؤسسات الاتصالات | الخدمات المقدَّمة مباشرة للمواطنين |
+
+Twelve complaint types route into them. Every entity receives at least one
+type — a department nothing routes to would never see work:
+
+| Code | Type | Routed to |
+| --- | --- | --- |
+| C-01 | انقطاع خدمة الإنترنت | مديرية الاتصالات |
+| C-02 | بطء السرعة وجودة الخدمة | مديرية الاتصالات |
+| C-03 | البنية التحتية وتغطية الشبكات | مديرية الاتصالات |
+| C-04 | الهاتف الأرضي | الجهات التابعة ومؤسسات الاتصالات |
+| C-05 | الفواتير والرصيد | الجهات التابعة ومؤسسات الاتصالات |
+| C-06 | استفسار أو مقترح | الجهات التابعة ومؤسسات الاتصالات |
+| C-07 | البوابات والمنصات الحكومية | المعلوماتية والحكومة الإلكترونية |
+| C-08 | الخدمات الإلكترونية للمواطن | المعلوماتية والحكومة الإلكترونية |
+| C-09 | رقمنة وأتمتة المعاملات | مديرية التحول الرقمي |
+| C-10 | الأنظمة وقواعد البيانات | مديرية تقانة المعلومات |
+| C-11 | الأمن السيبراني وحماية البيانات | الجهات المعنية بالأمن السيبراني |
+| C-12 | البيانات والإحصاء الرقمي | الجهات المعنية بالبيانات والإحصاء الرقمي |
 
 Priorities: `منخفضة` `متوسطة` `عالية`.
 Statuses: `جديدة` `محوّلة` `قيد المعالجة` `تم الحل` `مغلقة`.
@@ -83,10 +105,11 @@ API and the screens cannot drift apart.
 `app/classifier.py` scores the title and description against Arabic and English
 keyword sets, then:
 
-1. **Classifies** it into one of the six types. Arabic is normalized first —
+1. **Classifies** it into one of the twelve types. Arabic is normalized first —
    diacritics stripped, `أإآ→ا`, `ى→ي`, `ة→ه` — so spelling variants match.
 2. **Assigns a priority** from urgency wording (`انقطاع كامل`, `طارئ`, `متكرر`,
-   `emergency` → عالية; inquiries and suggestions → منخفضة).
+   `emergency` → عالية; inquiries and suggestions → منخفضة). A suspected
+   breach starts at عالية by type, the same way a total outage does.
 3. **Routes** it to the owning department from the table above.
 4. **Flags possible duplicates** — same-type complaints from the last 30 days
    with ≥72% text similarity, returned to the citizen at submission time.

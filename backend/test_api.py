@@ -41,12 +41,19 @@ def main() -> int:
     with TestClient(app) as client:
         print("\n[meta]")
         meta = client.get("/api/meta").json()
-        check("6 departments seeded", len(meta["departments"]) == 6)
+        check("7 departments seeded", len(meta["departments"]) == 7)
+        check("departments carry their remit",
+              all(d.get("scope_ar") for d in meta["departments"]))
         check("5 statuses exposed", len(meta["statuses"]) == 5)
-        check("6 complaint types exposed", len(meta["types"]) == 6)
+        check("12 complaint types exposed", len(meta["types"]) == 12)
+        check("every type routes to a real department",
+              all(t["department"] for t in meta["types"]))
+        check("every department receives at least one type",
+              {d["code"] for d in meta["departments"]}
+              == {t["department"]["code"] for t in meta["types"]})
         check("types carry card code + department",
               meta["types"][0]["code"] == "C-01"
-              and meta["types"][0]["department"]["code"] == "syrian_telecom")
+              and meta["types"][0]["department"]["code"] == "telecommunications")
         check("14 governorates exposed", len(meta["governorates"]) == 14)
         check("labels are bilingual", "ar" in meta["types"][0] and "en" in meta["types"][0])
         check("health ok", client.get("/api/health").json()["status"] == "ok")
@@ -66,10 +73,10 @@ def main() -> int:
         check("created 201", created.status_code == 201, created.text)
         body = created.json()
         complaint = body["complaint"]
-        check("classified as slow_speed", complaint["type"] == "slow_speed",
+        check("classified as service_quality", complaint["type"] == "service_quality",
               complaint["type"])
-        check("routed to service_quality",
-              complaint["department"]["code"] == "service_quality")
+        check("quality issue routed to telecommunications",
+              complaint["department"]["code"] == "telecommunications")
         check("complaints start New but already routed",
               complaint["status"] == "new" and complaint["department"] is not None)
         check("reference number issued",
@@ -83,8 +90,9 @@ def main() -> int:
             "title": "فاتورة غير صحيحة",
             "description": "وصلتني فاتورة بمبلغ مضاعف عن الشهر الماضي وأطلب استرداد الفرق.",
         }).json()["complaint"]
-        check("billing routed to finance dept",
-              billing["department"]["code"] == "finance", billing["type"])
+        check("billing routed to the operators",
+              billing["department"]["code"] == "affiliated_operators",
+              billing["type"])
 
         urgent = client.post("/api/complaints", json={
             "citizen_name": "عمر السيد", "citizen_phone": "0944444444", "governorate": "حمص",
@@ -93,15 +101,15 @@ def main() -> int:
         }).json()["complaint"]
         check("emergency wording -> high", urgent["priority"] == "high",
               urgent["priority"])
-        check("outage routed to syrian_telecom",
-              urgent["department"]["code"] == "syrian_telecom", urgent["type"])
+        check("outage routed to telecommunications",
+              urgent["department"]["code"] == "telecommunications", urgent["type"])
 
         english = client.post("/api/complaints", json={
             "citizen_name": "Sara Nasser", "citizen_phone": "0933333333", "governorate": "دمشق",
             "title": "Slow internet speed",
             "description": "My internet has been extremely slow all week on a fiber package.",
         }).json()["complaint"]
-        check("english text classified too", english["type"] == "slow_speed",
+        check("english text classified too", english["type"] == "service_quality",
               english["type"])
 
         suggestion = client.post("/api/complaints", json={
@@ -109,8 +117,8 @@ def main() -> int:
             "title": "اقتراح لتحسين الخدمة",
             "description": "أقترح تطوير تطبيق موبايل لمتابعة الشكوى ودفع الفاتورة بشكل أسهل.",
         }).json()["complaint"]
-        check("suggestion -> citizen_service + low",
-              suggestion["department"]["code"] == "citizen_service"
+        check("suggestion -> operators + low",
+              suggestion["department"]["code"] == "affiliated_operators"
               and suggestion["priority"] == "low",
               f"{suggestion['type']}/{suggestion['priority']}")
 
@@ -217,8 +225,8 @@ def main() -> int:
         check("multipart create 201", multi.status_code == 201, multi.text)
         check("multipart attachment stored",
               len(multi.json()["complaint"]["attachments"]) == 1)
-        check("routed to fixed_networks",
-              multi.json()["complaint"]["department"]["code"] == "fixed_networks",
+        check("landline routed to the operators",
+              multi.json()["complaint"]["department"]["code"] == "affiliated_operators",
               multi.json()["complaint"]["type"])
 
         print("\n[workflow and history]")
@@ -292,7 +300,8 @@ def main() -> int:
         check("multi-value status filter",
               client.get("/api/complaints?status=closed&status=new").json()["total"] >= 1)
         check("filter by department",
-              client.get("/api/complaints?department=finance").json()["total"] == 2)
+              client.get("/api/complaints?department=affiliated_operators")
+              .json()["total"] >= 2)
         check("arabic search works",
               client.get("/api/complaints?q=فاتورة").json()["total"] >= 1)
         check("reference search works",
@@ -339,13 +348,13 @@ def main() -> int:
               f"{stats['open_count']}+{stats['resolved_count']}")
         check("avg resolution computed", stats["avg_resolution_hours"] is not None)
         check("trend zero-filled to 14 days", len(stats["recent_days"]) == 14)
-        check("every department present", len(stats["by_department"]) == 6)
+        check("every department present", len(stats["by_department"]) == 7)
         check("status breakdown covers 5 statuses",
               len(stats["status_breakdown"]) == 5)
         check("status percentages total 100",
               sum(b["percent"] for b in stats["status_breakdown"]) == 100,
               str([b["percent"] for b in stats["status_breakdown"]]))
-        check("type breakdown covers 6 types", len(stats["type_breakdown"]) == 6)
+        check("type breakdown covers 12 types", len(stats["type_breakdown"]) == 12)
         check("busiest type bar is full width",
               stats["type_breakdown"][0]["width"] == 100)
         check("sla percentages total 100",

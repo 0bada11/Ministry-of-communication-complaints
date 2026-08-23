@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS departments (
     id       INTEGER PRIMARY KEY AUTOINCREMENT,
     code     TEXT NOT NULL UNIQUE,
     name_ar  TEXT NOT NULL,
-    name_en  TEXT NOT NULL
+    name_en  TEXT NOT NULL,
+    scope_ar TEXT
 );
 
 CREATE TABLE IF NOT EXISTS complaints (
@@ -145,9 +146,44 @@ def _ensure_columns(conn: sqlite3.Connection) -> None:
     new nullable column is introduced; never rewrite the CREATE TABLE alone,
     or a database created before that change will be missing the column.
     """
-    existing = {row["name"] for row in conn.execute("PRAGMA table_info(complaints)")}
-    if "location_detail" not in existing:
+    complaint_columns = {
+        row["name"] for row in conn.execute("PRAGMA table_info(complaints)")
+    }
+    if "location_detail" not in complaint_columns:
         conn.execute("ALTER TABLE complaints ADD COLUMN location_detail TEXT")
+
+    department_columns = {
+        row["name"] for row in conn.execute("PRAGMA table_info(departments)")
+    }
+    if "scope_ar" not in department_columns:
+        conn.execute("ALTER TABLE departments ADD COLUMN scope_ar TEXT")
+
+
+def _sync_departments(conn: sqlite3.Connection) -> None:
+    """Make the departments table match domain.DEPARTMENTS.
+
+    Upserts so a renamed department keeps its id — and therefore every
+    complaint already routed to it. Departments that no longer exist are
+    dropped only when nothing references them; one still holding complaints is
+    left in place rather than silently orphaning that history.
+    """
+    conn.executemany(
+        "INSERT INTO departments (code, name_ar, name_en, scope_ar)"
+        " VALUES (:code, :name_ar, :name_en, :scope_ar)"
+        " ON CONFLICT(code) DO UPDATE SET"
+        " name_ar = excluded.name_ar,"
+        " name_en = excluded.name_en,"
+        " scope_ar = excluded.scope_ar",
+        DEPARTMENTS,
+    )
+    keep = [d["code"] for d in DEPARTMENTS]
+    placeholders = ", ".join("?" * len(keep))
+    conn.execute(
+        f"DELETE FROM departments WHERE code NOT IN ({placeholders})"
+        " AND id NOT IN (SELECT DISTINCT department_id FROM complaints"
+        "                WHERE department_id IS NOT NULL)",
+        keep,
+    )
 
 
 def init_db() -> None:
@@ -158,8 +194,4 @@ def init_db() -> None:
     with get_db(write=True) as conn:
         conn.executescript(SCHEMA)
         _ensure_columns(conn)
-        conn.executemany(
-            "INSERT OR IGNORE INTO departments (code, name_ar, name_en)"
-            " VALUES (:code, :name_ar, :name_en)",
-            DEPARTMENTS,
-        )
+        _sync_departments(conn)

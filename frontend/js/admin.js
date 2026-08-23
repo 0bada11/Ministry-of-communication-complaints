@@ -145,9 +145,15 @@ const Admin = (() => {
 
   /* -------------------------------------------------------------- charts */
 
+  // The card sits beside the donut in a stretched row, so it shows the busiest
+  // categories rather than all twelve — otherwise it would run to twice the
+  // height of its neighbours. The full breakdown stays in /api/stats and CSV.
+  const TOP_TYPES = 6;
+
   function renderTypeBars(stats) {
     const host = clear(document.getElementById('type-bars'));
-    stats.type_breakdown.forEach((row, index) => {
+    // type_breakdown arrives sorted by count descending.
+    stats.type_breakdown.slice(0, TOP_TYPES).forEach((row) => {
       // The fill spans the track and is scaled down to the real figure, so the
       // animation is a compositor-only transform rather than a width relayout.
       const fill = el('span', {
@@ -771,9 +777,13 @@ const Admin = (() => {
   async function reroute(complaint) {
     const departments = App.meta.departments;
     const current = complaint.department ? complaint.department.name_ar : '—';
-    const menu = departments.map((d, i) => `${i + 1}. ${d.name_ar}`).join('\n');
+    // Each entity is listed with the problem domain it owns, so the officer
+    // picks by remit instead of having to remember which one handles what.
+    const menu = departments
+      .map((d, i) => `${i + 1}. ${d.name_ar}\n   ${d.scope_ar || ''}`)
+      .join('\n');
     const answer = window.prompt(
-      `الدائرة الحالية: ${current}\n\nاختر رقم الدائرة الجديدة:\n${menu}`, '');
+      `الجهة الحالية: ${current}\n\nاختر رقم الجهة الجديدة:\n${menu}`, '');
     if (!answer) return;
 
     const choice = departments[Number(answer.trim()) - 1];

@@ -19,10 +19,21 @@ TYPE_KEYWORDS: dict[ComplaintType, tuple[str, ...]] = {
         "منقطع", "بدون انترنت", "الانترنت لا يعمل", "adsl", "فايبر", "الياف",
         "outage", "no internet", "disconnected", "service down", "cut off",
     ),
-    ComplaintType.SLOW_SPEED: (
-        "بطء", "بطيء", "سرعة", "تذبذب", "ضعف الاشارة", "جودة الخدمة", "تقطع",
-        "اقل من المتعاقد", "باقة", "تحميل بطيء", "ping", "لاتنسي",
+    ComplaintType.SERVICE_QUALITY: (
+        "بطء", "بطيء", "سرعة", "تذبذب", "جودة الخدمة", "تقطع",
+        "اقل من المتعاقد", "باقة", "تحميل بطيء", "ping",
         "slow", "speed", "bandwidth", "latency", "quality", "unstable", "lag",
+    ),
+    ComplaintType.NETWORK_INFRASTRUCTURE: (
+        "تغطية", "ضعف الاشارة", "الاشارة ضعيفة", "برج", "ابراج", "كابل", "كبل",
+        "عمود", "مقسم", "بنية تحتية", "شبكة المنطقة", "توسعة الشبكة",
+        "لا توجد تغطية", "صيانة الشبكة",
+        "coverage", "signal", "tower", "cable", "infrastructure", "network build",
+    ),
+    ComplaintType.LANDLINE: (
+        "ارضي", "خط ثابت", "هاتف ثابت", "سنترال", "تشويش", "نقل خط", "الخط معطل",
+        "نغمة", "الشبكة الثابتة",
+        "landline", "fixed line", "telephone line", "dial tone", "noise",
     ),
     ComplaintType.BILLING: (
         "فاتورة", "فواتير", "رصيد", "دفع", "خصم", "مبلغ", "رسوم", "اشتراك",
@@ -30,22 +41,50 @@ TYPE_KEYWORDS: dict[ComplaintType, tuple[str, ...]] = {
         "bill", "billing", "payment", "charge", "refund", "invoice", "fee",
         "balance", "price",
     ),
-    ComplaintType.LANDLINE: (
-        "ارضي", "خط ثابت", "هاتف ثابت", "سنترال", "تشويش", "نقل خط", "الخط معطل",
-        "نغمة", "كبل", "الشبكة الثابتة",
-        "landline", "fixed line", "telephone line", "dial tone", "noise",
-    ),
-    ComplaintType.DIGITAL_SERVICES: (
-        "منصة", "موقع", "تطبيق", "بوابة", "خدمة الكترونية", "الحكومة الالكترونية",
-        "تسجيل الدخول", "حساب", "كلمة المرور", "استمارة", "الدفع الالكتروني",
-        "platform", "website", "portal", "app", "login", "account", "password",
-        "online service", "e-government",
-    ),
     ComplaintType.INQUIRY: (
         "استفسار", "سؤال", "استعلام", "اقتراح", "مقترح", "اقترح", "كيف", "متى",
         "هل يمكن", "ما هي", "تحسين", "فكرة",
         "inquiry", "question", "suggestion", "suggest", "proposal", "idea",
         "how do i", "when will", "what is",
+    ),
+    ComplaintType.GOV_PLATFORMS: (
+        "منصة", "بوابة", "الموقع الحكومي", "تطبيق حكومي", "الحكومة الالكترونية",
+        "تسجيل الدخول", "كلمة المرور", "الحساب لا يعمل", "الصفحة لا تفتح",
+        "استمارة الكترونية", "المنصة معطلة",
+        "platform", "portal", "government website", "government app", "login",
+        "password", "e-government",
+    ),
+    ComplaintType.E_SERVICES: (
+        "خدمة الكترونية", "معامله الكترونيه", "الدفع الالكتروني", "طلب الكتروني",
+        "تعذر اتمام", "لم تكتمل المعامله", "شهادة الكترونية", "حجز موعد",
+        "وثيقة الكترونية", "تصديق",
+        "online service", "e-service", "online payment", "online request",
+        "appointment", "certificate",
+    ),
+    ComplaintType.SERVICE_DIGITIZATION: (
+        "رقمنة", "اتمته", "اتمتة", "معامله ورقيه", "ورقي", "ما زالت ورقية",
+        "ربط الجهات", "ربط المديريات", "تحول رقمي", "اجراءات يدويه",
+        "مراجعة شخصية", "تبسيط الاجراءات",
+        "digitization", "automation", "paper based", "manual process",
+        "digital transformation",
+    ),
+    ComplaintType.GOV_SYSTEMS: (
+        "نظام", "الانظمة", "قاعدة بيانات", "قواعد البيانات", "تكامل", "ربط الانظمة",
+        "سجل غير محدث", "خطا في النظام", "تعطل النظام", "مزامنة", "بيانات غير متطابقة",
+        "system", "database", "integration", "sync", "record mismatch",
+    ),
+    ComplaintType.CYBERSECURITY: (
+        "اختراق", "تسريب", "ثغرة", "امن سيبراني", "امن المعلومات", "احتيال",
+        "تصيد", "فيروس", "برمجيات خبيثة", "سرقة حساب", "بيانات مسربة",
+        "هجوم", "نشاط مشبوه",
+        "breach", "leak", "vulnerability", "cyber", "phishing", "malware",
+        "hacked", "security incident", "suspicious",
+    ),
+    ComplaintType.DATA_STATISTICS: (
+        "احصاء", "احصائيات", "بيانات غير دقيقه", "مؤشر", "مؤشرات", "لوحة معلومات",
+        "تقرير احصائي", "ارقام غير صحيحه", "بيانات ناقصه", "تحليل البيانات",
+        "statistics", "dashboard", "indicator", "inaccurate data",
+        "missing data", "data analysis",
     ),
 }
 
@@ -105,14 +144,14 @@ def suggest_priority(text: str, ctype: ComplaintType) -> Priority:
             return priority
     if ctype is ComplaintType.INQUIRY:
         return Priority.LOW
-    if ctype is ComplaintType.INTERNET_OUTAGE:
+    if ctype in (ComplaintType.INTERNET_OUTAGE, ComplaintType.CYBERSECURITY):
         return Priority.HIGH
     return Priority.MEDIUM
 
 
 def route(ctype: ComplaintType) -> str:
     """Department code responsible for this complaint type."""
-    return ROUTING.get(ctype, "citizen_service")
+    return ROUTING.get(ctype, "affiliated_operators")
 
 
 def similarity(a: str, b: str) -> float:
