@@ -12,6 +12,9 @@ class ComplaintCreate(BaseModel):
     citizen_phone: str = Field(min_length=6, max_length=30)
     citizen_email: EmailStr | None = None
     governorate: str = Field(min_length=2, max_length=60)
+    # Street, building number, floor, nearest landmark — optional, but this is
+    # what lets a field team actually find the site for a physical fault.
+    location_detail: str | None = Field(default=None, max_length=300)
     title: str = Field(min_length=3, max_length=200)
     # 600 characters is the limit the submit form counts down from.
     description: str = Field(min_length=10, max_length=600)
@@ -35,6 +38,7 @@ class ComplaintUpdate(BaseModel):
     priority: Priority | None = None
     type: ComplaintType | None = None
     department_code: str | None = None
+    location_detail: str | None = Field(default=None, max_length=300)
     assignee: str | None = Field(default=None, max_length=120)
     resolution: str | None = Field(default=None, max_length=2000)
     note: str | None = Field(default=None, max_length=1000)
@@ -75,6 +79,7 @@ class ComplaintOut(BaseModel):
     citizen_phone: str
     citizen_email: str | None
     governorate: str
+    location_detail: str | None
     title: str
     description: str
     type: ComplaintType

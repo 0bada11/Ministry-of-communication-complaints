@@ -105,6 +105,24 @@ SLA_HOURS: dict[Priority, int] = {
 # Above this share of the SLA window a complaint counts as "قاربت المهلة".
 SLA_WARNING_RATIO = 0.75
 
+
+def escalate_priority(hours_open: float, current: Priority) -> Priority:
+    """The priority an open complaint should carry, given how long it has waited.
+
+    Reuses SLA_HOURS instead of a second set of magic numbers: waiting longer
+    than the Medium SLA already justifies High, and waiting longer than the
+    High SLA — the tightest window there is — justifies moving Low to Medium
+    even though it hasn't technically blown its own, much longer, deadline.
+    Never used to lower a priority a human deliberately raised.
+    """
+    if current is Priority.HIGH:
+        return current
+    if hours_open >= SLA_HOURS[Priority.MEDIUM]:
+        return Priority.HIGH
+    if hours_open >= SLA_HOURS[Priority.HIGH] and current is Priority.LOW:
+        return Priority.MEDIUM
+    return current
+
 GOVERNORATES: list[str] = [
     "دمشق", "ريف دمشق", "حلب", "حمص", "حماة", "اللاذقية", "طرطوس",
     "دير الزور", "الحسكة", "إدلب", "درعا", "السويداء", "القنيطرة", "الرقة",

@@ -26,6 +26,7 @@ from .domain import (
     ComplaintType,
     Priority,
     Status,
+    escalate_priority,
 )
 
 MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024  # 10 MB per file
@@ -141,6 +142,7 @@ def create_complaint(conn: sqlite3.Connection, payload, files: list[UploadFile] 
             "citizen_phone": payload.citizen_phone.strip(),
             "citizen_email": payload.citizen_email,
             "governorate": payload.governorate,
+            "location_detail": (payload.location_detail or "").strip() or None,
             "title": payload.title.strip(),
             "description": payload.description.strip(),
             "type": ctype.value,
@@ -262,6 +264,14 @@ def apply_update(conn: sqlite3.Connection, complaint: dict, payload) -> dict:
                 new_value=department["name_ar"], note=payload.note, actor=actor,
             )
 
+    if (payload.location_detail is not None
+            and payload.location_detail != complaint["location_detail"]):
+        changes["location_detail"] = payload.location_detail
+        repo.add_event(
+            conn, complaint_id, "location_updated", field="location_detail",
+            new_value=payload.location_detail, actor=actor,
+        )
+
     if payload.assignee is not None and payload.assignee != complaint["assignee"]:
         changes["assignee"] = payload.assignee
         # Naming an owner is what takes a complaint off the 'New' pile.
@@ -290,6 +300,36 @@ def apply_update(conn: sqlite3.Connection, complaint: dict, payload) -> dict:
 
     repo.update_complaint(conn, complaint_id, changes)
     return repo.get_complaint(conn, complaint_id)
+
+
+# ---------------------------------------------------------------------------
+# automatic escalation
+# ---------------------------------------------------------------------------
+
+def escalate_overdue(conn: sqlite3.Connection) -> list[int]:
+    """Bump the priority of any open complaint that has waited too long.
+
+    Runs on a timer from `main.py` rather than per-request, so an ordinary
+    page view never pays for a write. Every bump is logged like any other
+    priority change, with `actor="system"` and a note explaining why, so it
+    shows up in the complaint's update log exactly like a human-made change.
+    Returns the ids that were escalated, mainly for logging and tests.
+    """
+    escalated = []
+    for row in repo.open_complaints_with_age(conn):
+        current = Priority(row["priority"])
+        new = escalate_priority(row["hours_open"], current)
+        if new is current:
+            continue
+        repo.update_complaint(conn, row["id"], {"priority": new.value})
+        repo.add_event(
+            conn, row["id"], "priority_changed", field="priority",
+            old_value=current.value, new_value=new.value,
+            note=f"تصعيد تلقائي بعد {round(row['hours_open'])} ساعة دون حل",
+            actor="system",
+        )
+        escalated.append(row["id"])
+    return escalated
 
 
 # ---------------------------------------------------------------------------
@@ -381,7 +421,7 @@ def to_csv(conn: sqlite3.Connection, rows: list[dict]) -> str:
     departments = {d["id"]: d for d in repo.list_departments(conn)}
     header = [
         "الرقم المرجعي", "الموضوع", "التصنيف", "الدائرة", "الأولوية", "الحالة",
-        "المحافظة", "مقدّم الشكوى", "رقم الموبايل", "المسؤول",
+        "المحافظة", "العنوان التفصيلي", "مقدّم الشكوى", "رقم الموبايل", "المسؤول",
         "تاريخ الاستلام", "آخر تحديث",
     ]
     lines = [",".join(header)]
@@ -395,6 +435,7 @@ def to_csv(conn: sqlite3.Connection, rows: list[dict]) -> str:
             LABELS["priority"][Priority(row["priority"])]["ar"],
             LABELS["status"][Status(row["status"])]["ar"],
             row["governorate"] or "—",
+            row["location_detail"] or "—",
             row["citizen_name"],
             row["citizen_phone"],
             row["assignee"] or "—",

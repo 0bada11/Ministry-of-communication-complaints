@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS complaints (
     citizen_phone  TEXT NOT NULL,
     citizen_email  TEXT,
     governorate    TEXT,
+    location_detail TEXT,
     title          TEXT NOT NULL,
     description    TEXT NOT NULL,
     type           TEXT NOT NULL,
@@ -136,6 +137,19 @@ def write_db_dependency() -> Iterator[sqlite3.Connection]:
         yield conn
 
 
+def _ensure_columns(conn: sqlite3.Connection) -> None:
+    """Forward-only migration for columns added after the first release.
+
+    The project has no migration framework — at this scale a table-info check
+    plus ALTER TABLE is simpler and just as safe. Add a line here whenever a
+    new nullable column is introduced; never rewrite the CREATE TABLE alone,
+    or a database created before that change will be missing the column.
+    """
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(complaints)")}
+    if "location_detail" not in existing:
+        conn.execute("ALTER TABLE complaints ADD COLUMN location_detail TEXT")
+
+
 def init_db() -> None:
     """Create the data directories, the schema, and seed the departments."""
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -143,6 +157,7 @@ def init_db() -> None:
 
     with get_db(write=True) as conn:
         conn.executescript(SCHEMA)
+        _ensure_columns(conn)
         conn.executemany(
             "INSERT OR IGNORE INTO departments (code, name_ar, name_en)"
             " VALUES (:code, :name_ar, :name_en)",

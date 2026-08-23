@@ -15,6 +15,7 @@ _tmp = Path(tempfile.mkdtemp(prefix="moc_test_"))
 db.DB_PATH = _tmp / "test.db"
 db.UPLOAD_DIR = _tmp / "uploads"
 
+import app.repository as repo  # noqa: E402
 import app.services as services  # noqa: E402  (must follow the path override)
 
 services.UPLOAD_DIR = db.UPLOAD_DIR
@@ -142,6 +143,32 @@ def main() -> int:
             "description": "أرغب بمعرفة جدول الصيانة المجدولة للشهر القادم في منطقتي.",
         }).json()["possible_duplicates"])
 
+        print("\n[detailed location]")
+        with_location = client.post("/api/complaints", json={
+            "citizen_name": "زياد نجم", "citizen_phone": "0999999999",
+            "governorate": "حمص", "title": "انقطاع كهرباء يؤثر على المقسم",
+            "description": "انقطاع الإنترنت في المبنى مرتبط بانقطاع الكهرباء عن المقسم المحلي.",
+            "location_detail": "شارع الحمراء، بناء ٧، الطابق الثالث، قرب المخبز",
+        }).json()["complaint"]
+        check("location_detail stored",
+              with_location["location_detail"] == "شارع الحمراء، بناء ٧، الطابق الثالث، قرب المخبز")
+        without_location = client.post("/api/complaints", json={
+            "citizen_name": "سلوى حداد", "citizen_phone": "0988887777",
+            "governorate": "حماة", "title": "استفسار عام",
+            "description": "أرغب بمعرفة أوقات الدوام الرسمي لمكتب خدمة المواطن.",
+        }).json()["complaint"]
+        check("location_detail is optional and defaults to null",
+              without_location["location_detail"] is None)
+        located_update = client.patch(f"/api/complaints/{without_location['id']}", json={
+            "location_detail": "حي الجسر، بناء ٣", "actor": "أ. لؤي حسن",
+        })
+        check("staff can add a location after the fact",
+              located_update.status_code == 200
+              and located_update.json()["location_detail"] == "حي الجسر، بناء ٣")
+        check("location update logged", any(
+            e["action"] == "location_updated"
+            for e in client.get(f"/api/complaints/{without_location['id']}/events").json()))
+
         print("\n[validation]")
         check("short description rejected", client.post("/api/complaints", json={
             "citizen_name": "ب", "citizen_phone": "1", "title": "x", "description": "y",
@@ -256,7 +283,7 @@ def main() -> int:
 
         print("\n[listing, filtering, search]")
         all_items = client.get("/api/complaints?per_page=100").json()
-        check("list returns everything", all_items["total"] == 9, str(all_items["total"]))
+        check("list returns everything", all_items["total"] == 11, str(all_items["total"]))
         check("summary carries attachment_count",
               any(i["attachment_count"] == 1 for i in all_items["items"]))
         check("filter by status",
@@ -275,7 +302,7 @@ def main() -> int:
               ["items"][0]["priority"] == "high")
         page = client.get("/api/complaints?per_page=3&page=2").json()
         check("pagination", len(page["items"]) == 3 and page["page"] == 2
-              and page["pages"] == 3, str(page["pages"]))
+              and page["pages"] == 4, str(page["pages"]))
         check("unknown sort key falls back safely",
               client.get("/api/complaints?sort=DROP TABLE").status_code == 200)
 
@@ -292,7 +319,7 @@ def main() -> int:
 
         print("\n[dashboard statistics]")
         stats = client.get("/api/stats").json()
-        check("total matches", stats["total"] == 9, str(stats["total"]))
+        check("total matches", stats["total"] == 11, str(stats["total"]))
         check("open + resolved == total",
               stats["open_count"] + stats["resolved_count"] == stats["total"],
               f"{stats['open_count']}+{stats['resolved_count']}")
@@ -313,6 +340,73 @@ def main() -> int:
         check("kpi fields present",
               all(k in stats for k in ("new_today", "overdue_count",
                                        "resolved_this_week", "in_progress_count")))
+
+        print("\n[automatic priority escalation]")
+        stale_low = client.post("/api/complaints", json={
+            "citizen_name": "قديم الشكوى", "citizen_phone": "0977776666",
+            "governorate": "درعا", "title": "استفسار قديم بلا رد",
+            "description": "استفسار بسيط قُدّم منذ مدة طويلة ولم يصله أي رد حتى الآن.",
+        }).json()["complaint"]
+        check("starts low priority", stale_low["priority"] == "low", stale_low["priority"])
+
+        stale_medium = client.post("/api/complaints", json={
+            "citizen_name": "شكوى متوسطة قديمة", "citizen_phone": "0977775555",
+            "governorate": "دمشق", "title": "تشويش قديم على الخط",
+            "description": "تشويش على الهاتف الأرضي لم تتم معالجته منذ فترة طويلة.",
+        }).json()["complaint"]
+
+        fresh = client.post("/api/complaints", json={
+            "citizen_name": "شكوى حديثة", "citizen_phone": "0977774444",
+            "governorate": "دمشق", "title": "شكوى قدمت للتو",
+            "description": "شكوى جديدة قُدّمت منذ لحظات ولم يمر عليها وقت يُذكر.",
+        }).json()["complaint"]
+
+        # Backdate directly in the database — there is no HTTP route for this,
+        # since only real elapsed time should ever trigger an escalation.
+        with db.get_db(write=True) as conn:
+            old_stamp = repo.now()
+            for complaint_id, hours_ago in ((stale_low["id"], 30), (stale_medium["id"], 100)):
+                conn.execute(
+                    "UPDATE complaints SET created_at = datetime('now', ?) WHERE id = ?",
+                    (f"-{hours_ago} hours", complaint_id),
+                )
+            if stale_medium["priority"] != "medium":
+                conn.execute(
+                    "UPDATE complaints SET priority = 'medium' WHERE id = ?",
+                    (stale_medium["id"],),
+                )
+
+        with db.get_db(write=True) as conn:
+            escalated = services.escalate_overdue(conn)
+
+        check("30h-old low priority escalates to medium",
+              stale_low["id"] in escalated)
+        check("100h-old complaint escalates to high",
+              stale_medium["id"] in escalated)
+        check("a few-seconds-old complaint is left alone",
+              fresh["id"] not in escalated)
+
+        after_low = client.get(f"/api/complaints/{stale_low['id']}").json()
+        after_medium = client.get(f"/api/complaints/{stale_medium['id']}").json()
+        check("low -> medium reflected via the API", after_low["priority"] == "medium")
+        check("-> high reflected via the API", after_medium["priority"] == "high")
+        check("escalation logged as a priority_changed event with actor=system", any(
+            e["action"] == "priority_changed" and e["actor"] == "system"
+            and "تصعيد تلقائي" in (e["note"] or "")
+            for e in after_low["events"]
+        ), str([e["action"] for e in after_low["events"]]))
+
+        # escalate_overdue is idempotent by construction: re-running it should
+        # find nothing left to do once every complaint matches its target.
+        with db.get_db(write=True) as conn:
+            second_pass = services.escalate_overdue(conn)
+        check("re-running the sweep finds nothing left overdue for these two",
+              stale_low["id"] not in second_pass and stale_medium["id"] not in second_pass,
+              str(second_pass))
+
+        check("high priority never escalates further (there's nowhere higher)",
+              client.patch(f"/api/complaints/{stale_medium['id']}",
+                           json={"priority": "high"}).status_code == 200)
 
         print("\n[deletion]")
         target = multi.json()["complaint"]["id"]

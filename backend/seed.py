@@ -46,6 +46,15 @@ SAMPLES = [
      "My internet has been extremely slow all week despite paying for a premium fiber package."),
 ]
 
+# Sparse on purpose — the field is optional, and only physical-site complaints
+# tend to need it (billing or digital-service complaints rarely do).
+LOCATIONS = {
+    0: "شارع المزة، بناء رقم ٤٥، الطابق الثاني، قرب صيدلية الشفاء",
+    5: "حي الصناعة، شارع الكورنيش، بناء ١٢",
+    7: "حي الميدان، شارع الثورة، بناء ٨، الطابق الأول",
+    12: "المنطقة الصناعية الثالثة، مستودع رقم ٧",
+}
+
 NAMES = [
     "أحمد الخطيب", "فاطمة العلي", "محمد حسن", "ليلى إبراهيم", "عمر السيد",
     "نور الدين قاسم", "رنا الشامي", "سامر يوسف", "هدى المصري", "خالد العمر",
@@ -83,6 +92,7 @@ def seed() -> None:
                 citizen_phone=f"09{random.randint(10000000, 99999999)}",
                 citizen_email=f"citizen{i}@example.sy",
                 governorate=random.choice(GOVERNORATES),
+                location_detail=LOCATIONS.get(i),
                 title=title,
                 description=description,
             )
@@ -103,9 +113,13 @@ def seed() -> None:
             _advance(conn, complaint_id, Status.IN_PROGRESS, age_days)
             if age_days < 3:
                 continue
-            _advance(conn, complaint_id, Status.RESOLVED, age_days)
-            if age_days > 7:
-                _advance(conn, complaint_id, Status.CLOSED, age_days)
+            # A share of older complaints stay stuck in progress instead of
+            # resolving — realistic backlog, and exactly what the automatic
+            # priority escalation sweep exists to catch once they're stale.
+            if random.random() < 0.7:
+                _advance(conn, complaint_id, Status.RESOLVED, age_days)
+                if age_days > 7:
+                    _advance(conn, complaint_id, Status.CLOSED, age_days)
 
     with get_db(write=True) as conn:
         total = conn.execute("SELECT COUNT(*) FROM complaints").fetchone()[0]

@@ -112,6 +112,7 @@ const Submit = (() => {
       citizen_phone: document.getElementById('f-phone').value,
       citizen_email: document.getElementById('f-email').value,
       governorate: document.getElementById('f-gov').value,
+      location_detail: document.getElementById('f-location').value,
       title: document.getElementById('f-title').value,
       description: document.getElementById('f-desc').value,
       type: document.getElementById('f-type').value,
@@ -138,6 +139,7 @@ const Submit = (() => {
     try {
       const payload = { ...values };
       if (!payload.citizen_email) delete payload.citizen_email;
+      if (!payload.location_detail) delete payload.location_detail;
       const result = await API.create(payload, files);
       showReceipt(result);
       App.refreshDashboard();

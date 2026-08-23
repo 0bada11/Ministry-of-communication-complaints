@@ -1,5 +1,10 @@
 /* Admin dashboard: KPI cards, the three charts, the complaints table and the
-   detail panel with its workflow actions and update log. */
+   detail panel with its workflow actions and update log.
+
+   Two tabs, matching how the ministry actually splits the work: "لوحة
+   المؤشرات" is read-only reporting (charts and KPIs, no per-complaint
+   actions); "الشكاوى الواردة" is where a complaint actually gets searched,
+   filtered, advanced through its workflow, or re-routed. */
 
 const Admin = (() => {
   const { el, ar, clear, moment, shortDate, hours, percent, signed, fileSize, toast } = Fmt;
@@ -24,21 +29,26 @@ const Admin = (() => {
     classification_suggested: '#988561',
     resolution_added: '#1d6b3a',
     attachment_added: '#428177',
+    location_updated: '#428177',
     note: '#8b968f',
   };
   const PER_PAGE = 7;
 
-  // The filter chips the design draws: all, four statuses, then high priority.
-  const FILTERS = [
-    { key: 'all', label: 'الكل' },
-    { key: 'status:new', label: 'جديدة' },
-    { key: 'status:assigned', label: 'محوّلة' },
-    { key: 'status:in_progress', label: 'قيد المعالجة' },
-    { key: 'status:resolved', label: 'تم الحل' },
-    { key: 'priority:high', label: 'عالية' },
+  const STATUS_CHIPS = [
+    { key: '', label: 'الكل' },
+    { key: 'new', label: 'جديدة' },
+    { key: 'assigned', label: 'محوّلة' },
+    { key: 'in_progress', label: 'قيد المعالجة' },
+    { key: 'resolved', label: 'تم الحل' },
+    { key: 'closed', label: 'مغلقة' },
   ];
 
-  const state = { filter: 'all', query: '', page: 1, selectedId: null, total: 0 };
+  const state = {
+    tab: 'dashboard',
+    status: '', type: '', department: '', priority: '',
+    sort: 'created_at', order: 'desc',
+    query: '', page: 1, selectedId: null, total: 0,
+  };
   let searchTimer = null;
 
   /* ---------------------------------------------------------------- KPIs */
@@ -167,29 +177,69 @@ const Admin = (() => {
     });
   }
 
-  /* --------------------------------------------------------------- table */
+  /* ------------------------------------------------------------- filters */
 
-  function renderFilters() {
-    const host = clear(document.getElementById('filter-chips'));
-    FILTERS.forEach((filter) =>
+  function fillFilterOptions(meta) {
+    const withAll = (id, label, items, valueKey, labelKey) => {
+      const select = clear(document.getElementById(id));
+      select.append(el('option', { value: '', text: label }));
+      items.forEach((item) =>
+        select.append(el('option', { value: item[valueKey], text: item[labelKey] })));
+    };
+    withAll('filter-type', 'كل التصنيفات', meta.types, 'value', 'ar');
+    withAll('filter-department', 'كل الدوائر', meta.departments, 'code', 'name_ar');
+    withAll('filter-priority', 'كل الأولويات', meta.priorities, 'value', 'ar');
+  }
+
+  function renderStatusChips() {
+    const host = clear(document.getElementById('status-chips'));
+    STATUS_CHIPS.forEach((chip) =>
       host.append(el('button', {
         type: 'button',
-        class: `filter-chip${state.filter === filter.key ? ' is-active' : ''}`,
-        text: filter.label,
+        class: `filter-chip${state.status === chip.key ? ' is-active' : ''}`,
+        text: chip.label,
         onclick: () => {
-          state.filter = filter.key;
+          state.status = chip.key;
           state.page = 1;
-          renderFilters();
+          renderStatusChips();
+          updateFilterUI();
           loadTable();
         },
       })));
   }
 
-  /* Turns the active chip into the query parameters the API expects. */
+  function activeFilterCount() {
+    return ['status', 'type', 'department', 'priority'].filter((key) => state[key]).length
+      + (state.query ? 1 : 0);
+  }
+
+  function updateFilterUI() {
+    const count = activeFilterCount();
+    document.getElementById('filter-clear').hidden = count === 0;
+    document.getElementById('filter-count').textContent = count ? ar(count) : '';
+  }
+
+  function clearFilters() {
+    state.status = ''; state.type = ''; state.department = ''; state.priority = '';
+    state.query = ''; state.sort = 'created_at'; state.order = 'desc'; state.page = 1;
+    document.getElementById('admin-search').value = '';
+    document.getElementById('filter-type').value = '';
+    document.getElementById('filter-department').value = '';
+    document.getElementById('filter-priority').value = '';
+    document.getElementById('filter-sort').value = 'created_at:desc';
+    renderStatusChips();
+    updateFilterUI();
+    loadTable();
+  }
+
+  /* Turns the current filter state into the query parameters the API expects. */
   function filterParams() {
-    if (state.filter === 'all') return {};
-    const [field, value] = state.filter.split(':');
-    return { [field]: value };
+    const params = {};
+    if (state.status) params.status = state.status;
+    if (state.type) params.type = state.type;
+    if (state.department) params.department = state.department;
+    if (state.priority) params.priority = state.priority;
+    return params;
   }
 
   function listParams() {
@@ -198,10 +248,12 @@ const Admin = (() => {
       q: state.query || undefined,
       page: state.page,
       per_page: PER_PAGE,
-      sort: 'created_at',
-      order: 'desc',
+      sort: state.sort,
+      order: state.order,
     };
   }
+
+  /* ---------------------------------------------------------------- table */
 
   function renderRows(page) {
     const host = clear(document.getElementById('tbl-body'));
@@ -309,6 +361,7 @@ const Admin = (() => {
         return `تحديث الأولوية إلى «${value(event.new_value, 'priority')}»`;
       case 'resolution_added': return 'إضافة ملخّص الحل';
       case 'attachment_added': return `إضافة مرفق: ${event.new_value}`;
+      case 'location_updated': return `تحديث العنوان التفصيلي: ${event.new_value}`;
       default: return event.note || 'تحديث';
     }
   }
@@ -335,6 +388,9 @@ const Admin = (() => {
       ['الأولوية', App.priorityLabel(complaint.priority), PRIORITY_COLORS[complaint.priority]],
       ['المسؤول', complaint.assignee || '—', null],
     ];
+    if (complaint.location_detail) {
+      cells.push(['العنوان التفصيلي', complaint.location_detail, null]);
+    }
     host.append(el('div', { class: 'detail-grid' },
       cells.map(([label, value, color]) =>
         el('div', { class: 'detail-cell' }, [
@@ -438,6 +494,26 @@ const Admin = (() => {
     }
   }
 
+  /* ----------------------------------------------------------------- tabs */
+
+  function setTab(tab) {
+    state.tab = tab;
+    document.getElementById('admin-dashboard-view').hidden = tab !== 'dashboard';
+    document.getElementById('admin-inbox-view').hidden = tab !== 'inbox';
+    document.querySelectorAll('[data-admin-tab]').forEach((item) =>
+      item.classList.toggle('is-active', item.dataset.adminTab === tab));
+    document.getElementById('admin-title').textContent =
+      tab === 'inbox' ? 'الشكاوى الواردة' : 'لوحة المؤشرات';
+    if (tab === 'inbox') loadTable();
+  }
+
+  /* Called each time the admin screen is (re-)entered. The dashboard tab is
+     refreshed unconditionally by App.refreshDashboard(); this only needs to
+     refresh the table when the inbox tab is the one currently showing. */
+  function onEnter() {
+    if (state.tab === 'inbox') loadTable();
+  }
+
   /* ---------------------------------------------------------------- init */
 
   function renderEmptyDetail() {
@@ -456,8 +532,19 @@ const Admin = (() => {
   }
 
   function init() {
-    renderFilters();
+    renderStatusChips();
+    updateFilterUI();
     renderEmptyDetail();
+
+    document.querySelectorAll('[data-admin-tab]').forEach((item) => {
+      item.addEventListener('click', () => setTab(item.dataset.adminTab));
+      item.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          setTab(item.dataset.adminTab);
+        }
+      });
+    });
 
     document.getElementById('admin-search').addEventListener('input', (event) => {
       // Debounced so typing does not fire a request per keystroke.
@@ -465,14 +552,34 @@ const Admin = (() => {
       searchTimer = setTimeout(() => {
         state.query = event.target.value.trim();
         state.page = 1;
+        updateFilterUI();
         loadTable();
       }, 250);
     });
+
+    ['type', 'department', 'priority'].forEach((key) => {
+      document.getElementById(`filter-${key}`).addEventListener('change', (event) => {
+        state[key] = event.target.value;
+        state.page = 1;
+        updateFilterUI();
+        loadTable();
+      });
+    });
+
+    document.getElementById('filter-sort').addEventListener('change', (event) => {
+      const [sort, order] = event.target.value.split(':');
+      state.sort = sort;
+      state.order = order;
+      state.page = 1;
+      loadTable();
+    });
+
+    document.getElementById('filter-clear').addEventListener('click', clearFilters);
 
     document.getElementById('export-csv').addEventListener('click', () => {
       window.open(API.csvUrl({ ...filterParams(), q: state.query || undefined }), '_blank');
     });
   }
 
-  return { init, renderDashboard, loadTable, select };
+  return { init, fillFilterOptions, renderDashboard, loadTable, onEnter, select };
 })();

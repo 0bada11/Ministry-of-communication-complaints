@@ -141,6 +141,13 @@
           </div>
 
           <label class="field">
+            <span class="field-label">العنوان التفصيلي</span>
+            <input id="f-location" name="location_detail" maxlength="300"
+                   placeholder="الشارع، رقم البناء، الطابق، أقرب معلم">
+            <span class="field-hint">اختياري — يساعد الفريق الفني على تحديد موقع العطل بدقة.</span>
+          </label>
+
+          <label class="field">
             <span class="field-label">عنوان مختصر<span class="req">*</span></span>
             <input id="f-title" name="title" placeholder="مثال: انقطاع الإنترنت في حي المزة منذ ثلاثة أيام">
             <span class="field-error" data-error-for="title" hidden></span>
@@ -232,8 +239,10 @@
 <main id="screen-admin" class="admin-main" hidden>
   <aside class="admin-side">
     <div class="admin-side-head">إدارة الشكاوى</div>
-    <div class="admin-side-item is-active">لوحة المؤشرات</div>
-    <div class="admin-side-item">الشكاوى الواردة</div>
+    <div class="admin-side-item admin-side-item--nav is-active" data-admin-tab="dashboard"
+         role="button" tabindex="0">لوحة المؤشرات</div>
+    <div class="admin-side-item admin-side-item--nav" data-admin-tab="inbox"
+         role="button" tabindex="0">الشكاوى الواردة</div>
     <div class="admin-side-item">المُحوّلة إليّ</div>
     <div class="admin-side-item">الدوائر</div>
     <div class="admin-side-item">التقارير</div>
@@ -244,7 +253,7 @@
   <div class="admin-body">
     <div class="admin-head">
       <div>
-        <h1>لوحة إدارة الشكاوى</h1>
+        <h1 id="admin-title">لوحة المؤشرات</h1>
         <span class="admin-head-sub" id="admin-updated"></span>
       </div>
       <div class="admin-head-actions">
@@ -253,62 +262,77 @@
       </div>
     </div>
 
-    <div class="kpi-grid" id="kpi-grid"></div>
+    <!-- لوحة المؤشرات: aggregate charts and KPIs only, no per-complaint actions -->
+    <div id="admin-dashboard-view">
+      <div class="kpi-grid" id="kpi-grid"></div>
 
-    <div class="chart-row">
-      <div class="card">
-        <div class="card-head">
-          <span class="card-title">الشكاوى حسب التصنيف</span>
-          <span class="card-note">آخر ٣٠ يوماً</span>
-        </div>
-        <div class="bars" id="type-bars"></div>
-      </div>
-
-      <div class="card">
-        <div class="card-title" style="margin-bottom:16px">توزّع الحالات</div>
-        <div class="donut-wrap">
-          <div class="donut" id="donut">
-            <div class="donut-hole">
-              <span class="donut-count" id="donut-count">٠</span>
-              <span class="donut-caption">شكوى نشطة</span>
-            </div>
+      <div class="chart-row">
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">الشكاوى حسب التصنيف</span>
+            <span class="card-note">آخر ٣٠ يوماً</span>
           </div>
-          <div class="legend" id="donut-legend"></div>
+          <div class="bars" id="type-bars"></div>
         </div>
-      </div>
 
-      <div class="card card-column">
-        <div class="card-head">
-          <span class="card-title">الشكاوى الواردة يومياً</span>
-          <span class="card-note">١٤ يوماً</span>
+        <div class="card">
+          <div class="card-title" style="margin-bottom:16px">توزّع الحالات</div>
+          <div class="donut-wrap">
+            <div class="donut" id="donut">
+              <div class="donut-hole">
+                <span class="donut-count" id="donut-count">٠</span>
+                <span class="donut-caption">شكوى نشطة</span>
+              </div>
+            </div>
+            <div class="legend" id="donut-legend"></div>
+          </div>
         </div>
-        <div class="trend" id="trend"></div>
-        <div class="trend-axis" id="trend-axis"></div>
-        <div class="sla-block">
-          <span class="sla-title">الالتزام بالمهلة</span>
-          <span class="sla-bar" id="sla-bar"></span>
-          <div class="sla-legend" id="sla-legend"></div>
+
+        <div class="card card-column">
+          <div class="card-head">
+            <span class="card-title">الشكاوى الواردة يومياً</span>
+            <span class="card-note">١٤ يوماً</span>
+          </div>
+          <div class="trend" id="trend"></div>
+          <div class="trend-axis" id="trend-axis"></div>
+          <div class="sla-block">
+            <span class="sla-title">الالتزام بالمهلة</span>
+            <span class="sla-bar" id="sla-bar"></span>
+            <div class="sla-legend" id="sla-legend"></div>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="work-row">
-      <div class="table-card">
-        <div class="table-tools">
-          <input id="admin-search" placeholder="بحث برقم مرجعي أو كلمة" autocomplete="off">
-          <div id="filter-chips" style="display:contents"></div>
+    <!-- الشكاوى الواردة: search, filter, and manage individual complaints -->
+    <div id="admin-inbox-view" hidden>
+      <div class="work-row">
+        <div class="table-card">
+          <div class="table-tools">
+            <input id="admin-search" placeholder="بحث برقم مرجعي أو كلمة أو اسم مواطن" autocomplete="off">
+            <select id="filter-type" class="mini-select" aria-label="التصنيف"></select>
+            <select id="filter-department" class="mini-select" aria-label="الدائرة"></select>
+            <select id="filter-priority" class="mini-select" aria-label="الأولوية"></select>
+            <select id="filter-sort" class="mini-select" aria-label="الترتيب">
+              <option value="created_at:desc">الأحدث أولاً</option>
+              <option value="created_at:asc">الأقدم أولاً</option>
+              <option value="priority:asc">الأولوية أولاً</option>
+            </select>
+            <button type="button" class="filter-clear" id="filter-clear" hidden>مسح الفلاتر <span id="filter-count"></span></button>
+          </div>
+          <div class="table-filters-row" id="status-chips"></div>
+          <div class="tbl-head">
+            <span>الرقم المرجعي</span><span>الموضوع</span><span>الدائرة</span><span>الأولوية</span><span>الحالة</span>
+          </div>
+          <div id="tbl-body"></div>
+          <div class="tbl-foot">
+            <span id="tbl-count"></span>
+            <div class="pager" id="pager"></div>
+          </div>
         </div>
-        <div class="tbl-head">
-          <span>الرقم المرجعي</span><span>الموضوع</span><span>الدائرة</span><span>الأولوية</span><span>الحالة</span>
-        </div>
-        <div id="tbl-body"></div>
-        <div class="tbl-foot">
-          <span id="tbl-count"></span>
-          <div class="pager" id="pager"></div>
-        </div>
-      </div>
 
-      <div class="detail-card" id="detail-card"></div>
+        <div class="detail-card" id="detail-card"></div>
+      </div>
     </div>
   </div>
 </main>

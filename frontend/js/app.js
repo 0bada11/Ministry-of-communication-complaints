@@ -60,7 +60,9 @@ const App = (() => {
     }
     if (screen === 'admin' && changed) {
       refreshDashboard();
-      Admin.loadTable();
+      // Only reloads the table if the inbox tab is the one showing — the
+      // dashboard tab needs nothing beyond the stats refresh above.
+      Admin.onEnter();
     }
 
     // Assigning the hash re-enters through hashchange, which is why that
@@ -101,6 +103,7 @@ const App = (() => {
     }
 
     Submit.fillOptions(api.meta);
+    Admin.fillFilterOptions(api.meta);
     Home.renderCategories(api.meta.types);
     Home.init();
     Submit.init();

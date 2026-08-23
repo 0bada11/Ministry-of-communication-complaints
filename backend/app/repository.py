@@ -136,12 +136,12 @@ def create_complaint(conn: sqlite3.Connection, data: dict) -> int:
         """
         INSERT INTO complaints (
             reference_no, citizen_name, citizen_phone, citizen_email, governorate,
-            title, description, type, priority, status, department_id,
-            created_at, updated_at
+            location_detail, title, description, type, priority, status,
+            department_id, created_at, updated_at
         ) VALUES (
             :reference_no, :citizen_name, :citizen_phone, :citizen_email, :governorate,
-            :title, :description, :type, :priority, :status, :department_id,
-            :created_at, :updated_at
+            :location_detail, :title, :description, :type, :priority, :status,
+            :department_id, :created_at, :updated_at
         )
         """,
         {**data, "created_at": stamp, "updated_at": stamp},
@@ -177,6 +177,23 @@ def update_complaint(conn: sqlite3.Connection, complaint_id: int, changes: dict)
 
 def delete_complaint(conn: sqlite3.Connection, complaint_id: int) -> None:
     conn.execute("DELETE FROM complaints WHERE id = ?", (complaint_id,))
+
+
+def open_complaints_with_age(conn: sqlite3.Connection) -> list[dict]:
+    """Open, not-yet-high-priority complaints, with how long each has waited.
+
+    Feeds the automatic priority escalation sweep — closed and already-high
+    complaints are excluded up front since neither can escalate further.
+    """
+    rows = conn.execute(
+        """
+        SELECT id, priority,
+               (julianday('now') - julianday(created_at)) * 24.0 AS hours_open
+        FROM complaints
+        WHERE status NOT IN ('resolved', 'closed') AND priority != 'high'
+        """
+    ).fetchall()
+    return [dict(r) for r in rows]
 
 
 # Whitelist of sortable columns — the sort key is interpolated into SQL, so it

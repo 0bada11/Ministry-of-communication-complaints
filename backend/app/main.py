@@ -1,5 +1,7 @@
 """Ministry of Communications — complaint intake, routing and tracking API."""
 
+import asyncio
+import logging
 import sqlite3
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -10,7 +12,7 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import repository as repo, services
-from .db import UPLOAD_DIR, db_dependency, init_db, write_db_dependency
+from .db import UPLOAD_DIR, db_dependency, get_db, init_db, write_db_dependency
 from .domain import ComplaintType, Priority, Status
 from .schemas import (
     ComplaintCreate,
@@ -22,11 +24,51 @@ from .schemas import (
     TrackingOut,
 )
 
+logger = logging.getLogger("moct")
+logger.setLevel(logging.INFO)
+if not logger.handlers:
+    # uvicorn configures its own loggers, not the root logger, so a plain
+    # logging.info() call here would otherwise go nowhere.
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(asctime)s %(name)s: %(message)s"))
+    logger.addHandler(_handler)
+
+# How often the priority-escalation sweep runs. A minute keeps it demoable —
+# raise this (5-10 minutes) for a real deployment, where the sweep cost still
+# matters but instant visibility does not.
+ESCALATION_INTERVAL_SECONDS = 60
+
+
+def _run_escalation_sweep() -> None:
+    """One pass over open complaints, bumping priority where it's overdue.
+
+    Runs on a worker thread (see the asyncio.to_thread calls below) since
+    sqlite3 is blocking — a slow sweep must never stall request handling.
+    """
+    with get_db(write=True) as conn:
+        escalated = services.escalate_overdue(conn)
+    if escalated:
+        logger.info("escalated %d complaint(s): %s", len(escalated), escalated)
+
+
+async def _escalation_loop() -> None:
+    while True:
+        await asyncio.sleep(ESCALATION_INTERVAL_SECONDS)
+        try:
+            await asyncio.to_thread(_run_escalation_sweep)
+        except Exception:
+            logger.exception("escalation sweep failed")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    # Catch anything that was already overdue when the server started, rather
+    # than waiting a full interval before the first sweep.
+    await asyncio.to_thread(_run_escalation_sweep)
+    task = asyncio.create_task(_escalation_loop())
     yield
+    task.cancel()
 
 
 app = FastAPI(
@@ -102,6 +144,7 @@ def create_complaint_with_files(
     title: str = Form(...),
     description: str = Form(...),
     citizen_email: str | None = Form(None),
+    location_detail: str | None = Form(None),
     type: str | None = Form(None),
     priority: str | None = Form(None),
     files: list[UploadFile] = File(default=[]),
@@ -113,6 +156,7 @@ def create_complaint_with_files(
         citizen_phone=citizen_phone,
         citizen_email=citizen_email or None,
         governorate=governorate,
+        location_detail=location_detail or None,
         title=title,
         description=description,
         type=type or None,
