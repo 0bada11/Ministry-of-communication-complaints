@@ -51,6 +51,32 @@ const Admin = (() => {
   };
   let searchTimer = null;
 
+  /* ------------------------------------------------------ chart motion */
+
+  /* Charts are torn down and rebuilt on every refresh, so the animation state
+     cannot live on the elements. One long-lived spring per series does the
+     job: it starts at 0 (so the first paint is an entrance) and is retargeted
+     afterwards, carrying its own velocity. That means a refresh eases from
+     whatever is currently on screen instead of replaying the entrance, and a
+     refresh landing mid-flight has nothing to jump from. */
+  const chartSprings = new Map();
+
+  function animateValue(key, to, apply, options = {}) {
+    let spring = chartSprings.get(key);
+    if (!spring) {
+      spring = Motion.spring({
+        from: options.from ?? 0,
+        precision: options.precision ?? 0.001,
+      });
+      chartSprings.set(key, spring);
+    }
+    // Rewire the output to the freshly created element, then paint once so it
+    // appears at the live value rather than flashing at zero.
+    spring.onUpdate = apply;
+    apply(spring.value);
+    spring.to(to, { preset: options.preset || 'ui' });
+  }
+
   /* ---------------------------------------------------------------- KPIs */
 
   function renderKpis(stats) {
@@ -59,10 +85,13 @@ const Admin = (() => {
       : 0;
     const slaWithin = stats.sla.percent.within + stats.sla.percent.near;
 
+    // `count` is the number the figure animates towards; `format` turns the
+    // in-between values into the text actually shown.
     const cards = [
       {
         label: 'شكاوى جديدة اليوم',
-        value: ar(stats.new_today),
+        count: stats.new_today,
+        format: (n) => ar(Math.round(n)),
         delta: stats.new_yesterday
           ? `${signed(dayOverDay)} عن أمس`
           : 'لا مقارنة متاحة',
@@ -70,54 +99,77 @@ const Admin = (() => {
       },
       {
         label: 'قيد المعالجة',
-        value: ar(stats.in_progress_count),
+        count: stats.in_progress_count,
+        format: (n) => ar(Math.round(n)),
         delta: `ضمن المهلة ${percent(slaWithin)}`,
         color: '#5a6a66',
       },
       {
         label: 'متأخرة عن المهلة',
-        value: ar(stats.overdue_count),
+        count: stats.overdue_count,
+        format: (n) => ar(Math.round(n)),
         delta: stats.overdue_count ? 'تحتاج تدخّل' : 'لا تأخير',
         color: stats.overdue_count ? '#8c1c2a' : '#1d6b3a',
       },
       {
         label: 'تم حلها هذا الأسبوع',
-        value: ar(stats.resolved_this_week),
+        count: stats.resolved_this_week,
+        format: (n) => ar(Math.round(n)),
         delta: `من أصل ${ar(stats.total)}`,
         color: '#1d6b3a',
       },
       {
         label: 'متوسط زمن الحل',
-        value: hours(stats.avg_resolution_hours),
+        count: stats.avg_resolution_hours ?? 0,
+        format: (n) => (stats.avg_resolution_hours === null ? '—' : hours(n)),
         delta: stats.resolved_count ? `على ${ar(stats.resolved_count)} شكوى` : '—',
         color: '#1d6b3a',
       },
     ];
 
     const host = clear(document.getElementById('kpi-grid'));
-    cards.forEach((card) =>
+    cards.forEach((card) => {
+      const figure = el('span', { class: 'kpi-value' });
       host.append(el('div', { class: 'kpi' }, [
         el('span', { class: 'kpi-label', text: card.label }),
-        el('span', { class: 'kpi-value', text: card.value }),
+        figure,
         el('span', { class: 'kpi-delta', style: `color:${card.color}`, text: card.delta }),
-      ])));
+      ]));
+      // Counting up reads as the figure being tallied rather than asserted,
+      // and on a refresh it walks from the old number to the new one.
+      animateValue(`kpi:${card.label}`, card.count, (n) => {
+        figure.textContent = card.format(n);
+      }, { preset: 'move', precision: 0.01 });
+    });
   }
 
   /* -------------------------------------------------------------- charts */
 
   function renderTypeBars(stats) {
     const host = clear(document.getElementById('type-bars'));
-    stats.type_breakdown.forEach((row) =>
+    stats.type_breakdown.forEach((row, index) => {
+      // The fill spans the track and is scaled down to the real figure, so the
+      // animation is a compositor-only transform rather than a width relayout.
+      const fill = el('span', {
+        class: 'bar-fill',
+        style: `width:100%;background:${row.color};transform:scaleX(0)`,
+      });
+      const value = el('span', { class: 'bar-value' });
       host.append(el('div', { class: 'bar-row' }, [
         el('span', { class: 'bar-name', title: row.label_ar, text: row.label_ar }),
-        el('span', { class: 'bar-track' }, [
-          el('span', {
-            class: 'bar-fill',
-            style: `width:${row.width}%;background:${row.color}`,
-          }),
-        ]),
-        el('span', { class: 'bar-value', text: ar(row.count) }),
-      ])));
+        el('span', { class: 'bar-track' }, [fill]),
+        value,
+      ]));
+
+      animateValue(`bar:${row.type}`, row.width / 100, (t) => {
+        fill.style.transform = `scaleX(${Math.max(t, 0).toFixed(4)})`;
+      }, { preset: 'ui' });
+
+      // The figure counts alongside its own bar, so the two read as one thing.
+      animateValue(`bar-count:${row.type}`, row.count, (n) => {
+        value.textContent = ar(Math.round(n));
+      }, { preset: 'move', precision: 0.01 });
+    });
   }
 
   function renderDonut(stats) {
@@ -128,9 +180,21 @@ const Admin = (() => {
       cursor += slice.percent;
       return `${slice.color} ${from}% ${cursor}%`;
     });
-    document.getElementById('donut').style.background =
+    const donut = document.getElementById('donut');
+    donut.style.background =
       stats.total ? `conic-gradient(${stops.join(', ')})` : '#ececec';
-    document.getElementById('donut-count').textContent = ar(stats.open_count);
+
+    // A conic gradient cannot be interpolated, so the ring arrives as a
+    // material instead: it scales up once, then stays put on later refreshes.
+    animateValue('donut', 1, (t) => {
+      donut.style.transform = `scale(${Motion.lerp(0.86, 1, t).toFixed(4)})`;
+      donut.style.opacity = t.toFixed(3);
+    }, { preset: 'ui' });
+
+    const centre = document.getElementById('donut-count');
+    animateValue('donut-count', stats.open_count, (n) => {
+      centre.textContent = ar(Math.round(n));
+    }, { preset: 'move', precision: 0.01 });
 
     const legend = clear(document.getElementById('donut-legend'));
     stats.status_breakdown.forEach((slice) =>
@@ -144,14 +208,23 @@ const Admin = (() => {
   function renderTrend(stats) {
     const peak = Math.max(...stats.recent_days.map((d) => d.count), 1);
     const host = clear(document.getElementById('trend'));
-    stats.recent_days.forEach((day, index) =>
-      host.append(el('span', {
+    stats.recent_days.forEach((day, index) => {
+      // Full-height bar scaled down to its real value: same compositor-only
+      // trick as the category bars, and it interpolates cleanly on refresh.
+      const bar = el('span', {
         class: 'trend-bar',
         title: `${shortDate(day.date)}: ${ar(day.count)}`,
-        // A floor of 2% keeps empty days visible as a hairline.
-        style: `height:${Math.max((day.count / peak) * 100, 2)}%;`
+        style: `height:100%;transform:scaleY(0);`
              + `background:${index === stats.recent_days.length - 1 ? '#b9a779' : '#428177'}`,
-      })));
+      });
+      host.append(bar);
+
+      // A floor keeps empty days visible as a hairline rather than nothing.
+      const fraction = Math.max(day.count / peak, 0.02);
+      animateValue(`trend:${day.date}`, fraction, (t) => {
+        bar.style.transform = `scaleY(${Math.max(t, 0).toFixed(4)})`;
+      }, { preset: 'ui' });
+    });
 
     const days = stats.recent_days;
     const axis = clear(document.getElementById('trend-axis'));
@@ -175,6 +248,13 @@ const Admin = (() => {
         `${part.label} ${percent(value)}`,
       ]));
     });
+
+    // The segments have to keep real widths to lay out side by side, so the
+    // whole bar wipes in as one piece rather than each segment scaling.
+    bar.style.transformOrigin = 'right center';
+    animateValue('sla-bar', 1, (t) => {
+      bar.style.transform = `scaleX(${Math.max(t, 0).toFixed(4)})`;
+    }, { preset: 'ui' });
   }
 
   /* ------------------------------------------------------------- filters */
@@ -329,6 +409,75 @@ const Admin = (() => {
   // The row that opened the overlay, so keyboard focus can return there.
   let focusOrigin = null;
 
+  /* Two springs drive the sheet, and every visual property is derived from
+     them in one place. `openness` runs 0→1 as the sheet arrives; `drag` is the
+     live pixel offset while a finger is on it. Keeping them separate means a
+     half-open sheet can be grabbed mid-flight — the drag simply adds to
+     whatever the open spring is currently reading. */
+  let openness = 0;
+  let dragOffset = 0;
+  let closing = false;
+
+  const opennessSpring = Motion.spring({
+    from: 0,
+    precision: 0.001,
+    onUpdate: (value) => { openness = value; paintFocus(); },
+    onRest: () => {
+      // Only actually hide once the sheet has finished leaving.
+      if (closing) finishClose();
+    },
+  });
+
+  const dragSpring = Motion.spring({
+    from: 0,
+    onUpdate: (value) => { dragOffset = value; paintFocus(); },
+  });
+
+  // Measured when a drag begins and when the sheet opens, never per frame —
+  // reading offsetHeight inside the paint loop would force a layout on every
+  // single frame of the gesture.
+  let panelHeight = 600;
+
+  function focusEls() {
+    return {
+      overlay: document.getElementById('focus-overlay'),
+      panel: document.querySelector('.focus-panel'),
+    };
+  }
+
+  function measurePanel() {
+    const { panel } = focusEls();
+    if (panel && panel.offsetHeight) panelHeight = panel.offsetHeight;
+    return panelHeight;
+  }
+
+  /* The single place that turns spring values into pixels. Both springs and
+     the drag handler funnel through here, so the scrim and the sheet can never
+     disagree about where the sheet is. */
+  function paintFocus() {
+    const { overlay, panel } = focusEls();
+    if (!panel) return;
+
+    // Enter along the same path it exits: down and slightly small.
+    const enterOffset = (1 - openness) * 26;
+    const y = enterOffset + dragOffset;
+    const scale = Motion.lerp(0.97, 1, openness);
+
+    // The scrim thins out as the sheet is pulled away, so the page behind
+    // comes back gradually rather than all at once on release.
+    const pulled = Motion.clamp(dragOffset / panelHeight, 0, 1);
+    const presence = openness * (1 - pulled * 0.9);
+
+    panel.style.transform = `translate3d(0, ${y.toFixed(2)}px, 0) scale(${scale.toFixed(4)})`;
+    panel.style.opacity = openness.toFixed(3);
+    overlay.style.backgroundColor = `rgba(0, 38, 35, ${(0.55 * presence).toFixed(3)})`;
+    // Blur and scale rise together so the surface reads as a material
+    // arriving, not a rectangle fading in.
+    overlay.style.backdropFilter = Motion.reducedTransparency
+      ? 'none'
+      : `blur(${(6 * presence).toFixed(2)}px)`;
+  }
+
   async function select(id) {
     state.selectedId = id;
     focusOrigin = document.activeElement;
@@ -345,19 +494,140 @@ const Admin = (() => {
   }
 
   function openFocus() {
-    document.getElementById('focus-overlay').hidden = false;
+    const { overlay } = focusEls();
+    const wasClosing = closing;
+    closing = false;
+    overlay.hidden = false;
     // Stop the page behind the overlay from scrolling with it.
     document.body.style.overflow = 'hidden';
+    measurePanel();
+
+    if (wasClosing && dragOffset !== 0) {
+      // Reopened while it was still leaving: bring it back from where it
+      // actually is, rather than snapping it home and animating again.
+      dragSpring.to(0, { preset: 'ui' });
+    } else {
+      dragSpring.set(0);
+    }
+    paintFocus();
+    // No gesture preceded this, so no overshoot: a sheet that bounces when it
+    // was merely clicked open reads as decoration.
+    opennessSpring.to(1, { preset: 'ui' });
     document.getElementById('focus-close').focus();
   }
 
-  function closeFocus() {
-    const overlay = document.getElementById('focus-overlay');
-    if (overlay.hidden) return;
+  /* `velocity` lets a flick carry its speed straight into the exit, so there
+     is no seam between the finger letting go and the sheet leaving. */
+  function closeFocus(velocity = 0) {
+    const { overlay } = focusEls();
+    if (overlay.hidden || closing) return;
+    closing = true;
+
+    if (dragOffset > 0 || velocity > 0) {
+      // Dismissed by a downward drag — keep going the way the hand was going.
+      dragSpring.to(panelHeight + 80, { preset: 'sheet', velocity });
+    }
+    opennessSpring.to(0, { preset: 'ui' });
+  }
+
+  function finishClose() {
+    const { overlay, panel } = focusEls();
     overlay.hidden = true;
     document.body.style.overflow = '';
+    closing = false;
+    // Zero the spring itself, not just the mirrored value — otherwise the next
+    // open would animate back from wherever the dismissal left it.
+    dragSpring.set(0);
+    if (panel) panel.classList.remove('is-dragging');
     if (focusOrigin && document.contains(focusOrigin)) focusOrigin.focus();
     focusOrigin = null;
+  }
+
+  /* ------------------------------------------------- drag-to-dismiss */
+
+  // Fraction of the sheet's height the projected landing point must pass for
+  // the gesture to count as a dismissal rather than a nudge.
+  const DISMISS_FRACTION = 0.35;
+  const DRAG_THRESHOLD = 8; // px of travel before we commit to a direction
+
+  function initFocusGesture() {
+    const overlay = document.getElementById('focus-overlay');
+    const panel = document.querySelector('.focus-panel');
+    const tracker = new Motion.VelocityTracker();
+
+    let pointerId = null;
+    let startY = 0;
+    let dragging = false;
+    let abandoned = false;
+
+    panel.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0 && event.pointerType === 'mouse') return;
+      // Controls and text selection keep their normal behaviour.
+      if (event.target.closest('button, a, input, select, textarea')) return;
+      // Only take over at the top of the scroll: below that, a downward drag
+      // is a scroll and belongs to the browser.
+      if (overlay.scrollTop > 0) return;
+
+      pointerId = event.pointerId;
+      startY = event.clientY;
+      dragging = false;
+      abandoned = false;
+      measurePanel();
+      tracker.reset();
+      tracker.add(0);
+    });
+
+    panel.addEventListener('pointermove', (event) => {
+      if (pointerId !== event.pointerId || abandoned) return;
+      const delta = event.clientY - startY;
+
+      if (!dragging) {
+        // Hysteresis: wait for real intent before hijacking the pointer.
+        if (Math.abs(delta) < DRAG_THRESHOLD) return;
+        if (delta < 0) { abandoned = true; return; } // upward — let it scroll
+        dragging = true;
+        panel.setPointerCapture(pointerId);
+        panel.classList.add('is-dragging');
+        dragSpring.stop();
+      }
+
+      // 1:1 downward, progressive resistance upward — the sheet is already
+      // home, so pulling further up should feel like it is held by something.
+      const offset = delta >= 0
+        ? delta
+        : Motion.rubberband(delta, panelHeight);
+
+      tracker.add(offset);
+      dragOffset = offset;
+      paintFocus();
+      event.preventDefault();
+    });
+
+    const release = (event) => {
+      if (pointerId !== event.pointerId) return;
+      const wasDragging = dragging;
+      pointerId = null;
+      dragging = false;
+      abandoned = false;
+      panel.classList.remove('is-dragging');
+      if (!wasDragging) return;
+
+      const velocity = tracker.get();
+      // Decide from where the throw is *heading*, not where the finger
+      // happened to stop — that is what makes a short flick still dismiss.
+      const projected = dragOffset + Motion.project(velocity);
+
+      if (projected > panelHeight * DISMISS_FRACTION) {
+        closeFocus(velocity);
+      } else {
+        // Snapping back is momentum-driven, so here the bounce is earned.
+        dragSpring.value = dragOffset;
+        dragSpring.to(0, { preset: 'sheet', velocity });
+      }
+    };
+
+    panel.addEventListener('pointerup', release);
+    panel.addEventListener('pointercancel', release);
   }
 
   function eventText(event) {
@@ -561,7 +831,8 @@ const Admin = (() => {
     renderStatusChips();
     updateFilterUI();
 
-    document.getElementById('focus-close').addEventListener('click', closeFocus);
+    initFocusGesture();
+    document.getElementById('focus-close').addEventListener('click', () => closeFocus());
     document.getElementById('focus-overlay').addEventListener('mousedown', (event) => {
       // Backdrop only — a click that starts inside the panel must not close it.
       if (event.target.id === 'focus-overlay') closeFocus();

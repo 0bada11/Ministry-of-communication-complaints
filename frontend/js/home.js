@@ -3,20 +3,39 @@
 const Home = (() => {
   const { el, ar, clear, moment, hours, percent } = Fmt;
 
+  // One spring per figure, kept across renders so a refresh walks from the
+  // number already on screen instead of restarting the count from zero.
+  const counters = new Map();
+
   function renderStats(stats) {
     const within = stats.sla.percent.within + stats.sla.percent.near;
     const cells = [
-      [ar(stats.total), 'شكوى مستلمة هذا العام'],
-      [percent(within), 'نسبة الحل خلال المهلة'],
-      [hours(stats.avg_resolution_hours), 'متوسط زمن المعالجة'],
-      [`${ar(stats.departments.length)} دائرة`, 'جهة مرتبطة بالمنصة'],
+      [stats.total, (n) => ar(Math.round(n)), 'شكوى مستلمة هذا العام'],
+      [within, (n) => percent(n), 'نسبة الحل خلال المهلة'],
+      [stats.avg_resolution_hours ?? 0,
+       (n) => (stats.avg_resolution_hours === null ? '—' : hours(n)),
+       'متوسط زمن المعالجة'],
+      [stats.departments.length, (n) => `${ar(Math.round(n))} دائرة`,
+       'جهة مرتبطة بالمنصة'],
     ];
+
     const host = clear(document.getElementById('home-stats'));
-    cells.forEach(([value, label]) =>
+    cells.forEach(([target, format, label]) => {
+      const figure = el('span', { class: 'statstrip-value' });
       host.append(el('div', { class: 'statstrip-item' }, [
-        el('span', { class: 'statstrip-value', text: value }),
+        figure,
         el('span', { class: 'statstrip-label', text: label }),
-      ])));
+      ]));
+
+      let spring = counters.get(label);
+      if (!spring) {
+        spring = Motion.spring({ from: 0, precision: 0.01 });
+        counters.set(label, spring);
+      }
+      spring.onUpdate = (n) => { figure.textContent = format(n); };
+      spring.onUpdate(spring.value);
+      spring.to(target, { preset: 'move' });
+    });
   }
 
   function renderCategories(types) {

@@ -37,6 +37,28 @@ const App = (() => {
   /* --------------------------------------------------------------- route */
 
   let current = null;
+  // One spring reused for every screen change; retargeting it mid-flight lets
+  // a fast double navigation continue from where the last one got to.
+  let screenSpring = null;
+
+  /* Deliberately restrained: a short rise and fade. Top-level sections have no
+     spatial relationship to imply, so anything more directional would be
+     inventing a hierarchy that is not there. */
+  function revealScreen(node) {
+    const paint = (t) => {
+      node.style.transform = `translate3d(0, ${((1 - t) * 6).toFixed(2)}px, 0)`;
+      node.style.opacity = t.toFixed(3);
+    };
+    if (!screenSpring) {
+      screenSpring = Motion.spring({ from: 0, precision: 0.001 });
+    }
+    screenSpring.stop();
+    screenSpring.onUpdate = paint;
+    screenSpring.value = 0;
+    screenSpring.velocity = 0;
+    paint(0);
+    screenSpring.to(1, { preset: 'ui' });
+  }
 
   function go(screen, options = {}) {
     if (!SCREENS.includes(screen)) screen = 'home';
@@ -49,6 +71,7 @@ const App = (() => {
     document.querySelectorAll('.mainnav button').forEach((button) => {
       button.classList.toggle('is-active', button.dataset.nav === screen);
     });
+    if (changed) revealScreen(document.getElementById(`screen-${screen}`));
 
     if (screen === 'submit') {
       // Start from a blank form when arriving from elsewhere, when a category

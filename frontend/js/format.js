@@ -93,7 +93,21 @@ const Fmt = (() => {
     document.querySelectorAll('.toast').forEach((t) => t.remove());
     const node = el('div', { class: `toast${isError ? ' is-error' : ''}`, text: message });
     document.body.append(node);
-    setTimeout(() => node.remove(), isError ? 6000 : 3500);
+
+    // Rises into place and sinks back out along the same path, so it reads as
+    // one object arriving and leaving rather than two separate effects.
+    const paint = (t) => {
+      node.style.transform = `translate3d(0, ${((1 - t) * 20).toFixed(2)}px, 0)`;
+      node.style.opacity = t.toFixed(3);
+    };
+    const spring = Motion.spring({ from: 0, precision: 0.001, onUpdate: paint });
+    paint(0);
+    spring.to(1, { preset: 'ui' });
+
+    setTimeout(() => {
+      spring.onRest = () => node.remove();
+      spring.to(0, { preset: 'ui' });
+    }, isError ? 6000 : 3500);
   }
 
   return { ar, moment, shortDate, fileSize, hours, percent, signed, el, clear, toast };

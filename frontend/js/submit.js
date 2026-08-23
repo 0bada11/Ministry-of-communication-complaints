@@ -174,9 +174,22 @@ const Submit = (() => {
       dupes.hidden = true;
     }
 
-    document.getElementById('submit-form-wrap').hidden = true;
-    document.getElementById('receipt').hidden = false;
+    const form = document.getElementById('submit-form-wrap');
+    const receipt = document.getElementById('receipt');
+    form.hidden = true;
+    receipt.hidden = false;
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // The one genuine moment of achievement in the citizen flow, so the
+    // receipt is allowed a little overshoot where nothing else in the form is.
+    const paint = (t) => {
+      receipt.style.transform =
+        `translate3d(0, ${((1 - t) * 14).toFixed(2)}px, 0) scale(${Motion.lerp(0.98, 1, t).toFixed(4)})`;
+      receipt.style.opacity = t.toFixed(3);
+    };
+    paint(0);
+    Motion.spring({ from: 0, precision: 0.001, onUpdate: paint })
+      .to(1, { preset: 'sheet' });
   }
 
   function reset() {

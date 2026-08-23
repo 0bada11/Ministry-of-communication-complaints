@@ -85,6 +85,7 @@ already exists.
 frontend/                 static, no build step
   index.html              the three screens
   css/app.css             design tokens and all styling
+  js/motion.js            spring solver, velocity tracking, projection
   js/api.js               API client
   js/format.js            Arabic numerals, dates, DOM helpers
   js/home.js              stats strip, category cards, tracking
@@ -129,6 +130,53 @@ rules, the SLA model and the concurrency notes.
 | التوجيه للجهة المسؤولة | Routing table from type to department, plus manual re-route |
 | إحصائيات | `/api/stats` — KPIs, breakdowns, SLA compliance, intake trend |
 | Dashboard | لوحة المؤشرات (charts) + الشكاوى الواردة (queue) |
+
+## Motion
+
+Everything a person can touch animates through a spring rather than a fixed
+duration, because a spring retargets from its *current* value and velocity —
+which is what lets a moving element be grabbed and reversed mid-flight without
+a jump. `js/motion.js` is a ~200-line solver written for this project (no
+bundler, so no dependency) using Apple's two parameters instead of the physics
+triplet: **damping** (overshoot) and **response** (how fast it converges, in
+seconds — not a duration).
+
+Three presets carry the house style. Bounce is reserved for motion the user's
+own gesture set going: a sheet released from a drag is allowed to overshoot, a
+panel that merely appeared is not.
+
+| Preset | Damping | Response | Used for |
+| --- | --- | --- | --- |
+| `ui` | 1.0 | 0.35 | default — settles without bouncing |
+| `move` | 1.0 | 0.4 | counters and repositioning |
+| `sheet` | 0.8 | 0.3 | released from a drag |
+
+What actually moves:
+
+- **Press feedback** on every control, fired on pointer-*down* rather than
+  release. Pressing in is faster than springing back; large surfaces get a
+  smaller scale than small ones so the travel reads equal at every size, and
+  table rows respond with colour instead of geometry.
+- **The focus sheet can be dragged down to dismiss.** It tracks the finger 1:1,
+  resists with progressive rubber-banding if pulled upward past home, and the
+  scrim thins as it is pulled away. On release the landing point is *projected*
+  from the throw velocity, so a short flick dismisses while the same distance
+  held still springs back. Release velocity is handed to the spring, so there
+  is no seam between dragging and animating.
+- **Charts animate from their previous value, not from zero.** One long-lived
+  spring per series means the first paint is an entrance and every later
+  refresh eases from whatever is on screen — no replaying the entrance each
+  time data arrives, and a refresh landing mid-flight has nothing to jump from.
+  Bars scale rather than resize, so it stays a compositor-only transform.
+- **Figures count** to their new value instead of snapping.
+
+Accessibility is handled at the source: `prefers-reduced-motion` makes every
+spring land immediately (state still changes, travel does not), and
+`prefers-reduced-transparency` and `prefers-contrast` frost or solidify the
+sheet. Because the springs short-circuit rather than being skipped, the UI is
+fully correct with all motion removed. Springs also settle immediately when the
+tab is backgrounded, since `requestAnimationFrame` stops there and anything
+sequenced off a completion callback would otherwise hang.
 
 ## Design decisions worth knowing
 

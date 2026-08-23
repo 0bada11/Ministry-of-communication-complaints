@@ -697,7 +697,13 @@ input, select, textarea, button { font-family: inherit; }
   border-radius: 2px;
   overflow: hidden;
 }
-.bar-fill { display: block; height: 9px; border-radius: 2px; }
+.bar-fill {
+  display: block;
+  height: 9px;
+  border-radius: 2px;
+  /* Grows from the right edge, matching the RTL reading direction. */
+  transform-origin: right center;
+}
 .bar-value { font-size: 12px; color: var(--forest-800); font-weight: 600; text-align: left; }
 
 .donut-wrap { display: flex; gap: 18px; align-items: center; }
@@ -709,6 +715,7 @@ input, select, textarea, button { font-family: inherit; }
   display: flex;
   align-items: center;
   justify-content: center;
+  transform-origin: center;
 }
 .donut-hole {
   width: 66px;
@@ -744,7 +751,13 @@ input, select, textarea, button { font-family: inherit; }
   border-bottom: 1px solid rgba(5, 66, 57, .14);
   padding-bottom: 2px;
 }
-.trend-bar { flex: 1; min-width: 0; border-radius: 2px 2px 0 0; }
+.trend-bar {
+  flex: 1;
+  min-width: 0;
+  border-radius: 2px 2px 0 0;
+  /* Rises from the axis rather than scaling about its middle. */
+  transform-origin: bottom center;
+}
 .trend-axis {
   display: flex;
   justify-content: space-between;
@@ -1033,25 +1046,117 @@ input, select, textarea, button { font-family: inherit; }
 .timeline-text { font-size: 13px; color: var(--ink); font-weight: 500; }
 .timeline-meta { font-size: 11.5px; color: var(--muted-light); }
 
+/* ------------------------------------------------------- press feedback */
+
+/* Feedback belongs on the press, not the release: `:active` fires on
+   pointer-down, so the surface reacts the instant it is touched. Pressing in
+   is faster than springing back — that asymmetry is what reads as physical.
+   Large surfaces take a smaller scale than small ones so the travel looks
+   equal at every size. */
+.btn-gold,
+.btn-ghost-light,
+.btn-primary,
+.btn-outline,
+.btn-sm-outline,
+.btn-sm-primary,
+.track-form button,
+.chip,
+.filter-chip,
+.filter-clear,
+.pager button,
+.focus-close,
+.detail-actions .advance,
+.detail-actions .reroute,
+.file-row button {
+  transition: transform 140ms cubic-bezier(.2, .8, .3, 1),
+              background-color 140ms ease-out,
+              border-color 140ms ease-out;
+}
+.btn-gold:active,
+.btn-ghost-light:active,
+.btn-primary:active:not(:disabled),
+.btn-outline:active,
+.btn-sm-outline:active,
+.btn-sm-primary:active,
+.track-form button:active,
+.chip:active,
+.filter-clear:active,
+.pager button:active:not(:disabled),
+.focus-close:active,
+.detail-actions .advance:active:not(:disabled),
+.detail-actions .reroute:active,
+.file-row button:active {
+  transform: scale(.96);
+  transition-duration: 60ms;
+}
+/* Chips are small; a lighter press keeps them from looking rubbery. */
+.filter-chip:active { transform: scale(.97); transition-duration: 60ms; }
+
+.cat-card,
+.dropzone,
+.admin-side-item--nav,
+.mainnav button {
+  transition: transform 160ms cubic-bezier(.2, .8, .3, 1),
+              border-color 160ms ease-out,
+              background-color 160ms ease-out,
+              box-shadow 160ms ease-out;
+}
+.cat-card:active { transform: scale(.99); transition-duration: 70ms; }
+.dropzone:active { transform: scale(.995); transition-duration: 70ms; }
+
+/* A full-width row scaled even slightly looks broken against its neighbours,
+   so rows acknowledge the press with colour instead of geometry. */
+.tbl-row { transition: background-color 120ms ease-out; }
+.tbl-row:active { background: #eef2ef; transition-duration: 50ms; }
+
+/* Keyboard users get the same affordance the pointer gets. */
+.btn-gold:focus-visible,
+.btn-primary:focus-visible,
+.btn-outline:focus-visible,
+.btn-sm-primary:focus-visible,
+.btn-sm-outline:focus-visible,
+.chip:focus-visible,
+.filter-chip:focus-visible,
+.cat-card:focus-visible,
+.tbl-row:focus-visible,
+.mainnav button:focus-visible,
+.admin-side-item--nav:focus-visible,
+.focus-close:focus-visible {
+  outline: 2px solid var(--gold-400);
+  outline-offset: 2px;
+}
+
 /* ----------------------------------------------------------- focus mode */
 
 .focus-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 38, 35, .55);
   display: flex;
   align-items: flex-start;
   justify-content: center;
   padding: 40px 20px;
   overflow-y: auto;
   z-index: 40;
-  animation: focus-fade .16s ease-out;
+  /* Keep the dismiss drag from turning into a page-level overscroll bounce. */
+  overscroll-behavior: contain;
+  /* Resting values. While the overlay is opening, closing or being dragged
+     these are driven per-frame from a spring in admin.js, so the scrim and the
+     sheet stay locked together and can be interrupted at any point. */
+  background: rgba(0, 38, 35, .55);
+  backdrop-filter: blur(6px);
 }
 .focus-panel {
   position: relative;
   width: 100%;
   max-width: 720px;
-  animation: focus-rise .18s ease-out;
+  /* Vertical panning is ours to interpret — the browser must not start its own
+     scroll before the dismiss gesture is recognised. */
+  touch-action: pan-y;
+}
+.focus-panel.is-dragging {
+  /* Only hinted while a drag is actually live; a permanent layer promotion
+     would cost memory for the 99% of the time nothing is moving. */
+  will-change: transform;
 }
 /* The detail card keeps its own styling; the panel only positions it. */
 .focus-panel .detail-card {
@@ -1073,13 +1178,13 @@ input, select, textarea, button { font-family: inherit; }
 }
 .focus-close:hover { background: rgba(237, 235, 224, .15); }
 
-@keyframes focus-fade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes focus-rise {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: none; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .focus-overlay, .focus-panel { animation: none; }
+/* A grab affordance: the sheet can be pulled down to dismiss. */
+.focus-grabber {
+  width: 38px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(237, 235, 224, .5);
+  margin: 0 auto 10px;
 }
 
 /* --------------------------------------------------------------- utility */
@@ -1129,4 +1234,62 @@ input, select, textarea, button { font-family: inherit; }
   .mainnav { justify-content: center; }
   .section, .submit-main { padding-left: 18px; padding-right: 18px; }
   .sitefoot { flex-direction: column; align-items: flex-start; gap: 12px; }
+}
+
+/* ------------------------------------------------- motion accessibility */
+
+/* Reduced motion does not mean no feedback — it means feedback without
+   travel. Presses still respond, state still changes; what goes away is the
+   sliding, springing and scaling that can trigger vestibular symptoms.
+   The spring engine also short-circuits to its target value, so JS-driven
+   motion stops too, not just these declarative transitions. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* Colour feedback survives; only the geometry is dropped. */
+  .btn-gold:active,
+  .btn-ghost-light:active,
+  .btn-primary:active:not(:disabled),
+  .btn-outline:active,
+  .btn-sm-outline:active,
+  .btn-sm-primary:active,
+  .track-form button:active,
+  .chip:active,
+  .filter-chip:active,
+  .filter-clear:active,
+  .pager button:active:not(:disabled),
+  .focus-close:active,
+  .detail-actions .advance:active:not(:disabled),
+  .detail-actions .reroute:active,
+  .file-row button:active,
+  .cat-card:active,
+  .dropzone:active {
+    transform: none;
+  }
+  .cat-card:hover { box-shadow: none; }
+}
+
+/* Frost the glass instead of blurring through it. */
+@media (prefers-reduced-transparency: reduce) {
+  .focus-overlay {
+    background: rgba(0, 38, 35, .92);
+    backdrop-filter: none;
+  }
+  .track-card { background: rgba(3, 40, 35, .9); }
+}
+
+/* Near-solid surfaces with a defined edge. */
+@media (prefers-contrast: more) {
+  .focus-overlay {
+    background: rgba(0, 20, 18, .96);
+    backdrop-filter: none;
+  }
+  .focus-panel .detail-card { border: 2px solid var(--forest-800); }
+  .tbl-row { border-bottom-color: rgba(5, 66, 57, .3); }
 }
