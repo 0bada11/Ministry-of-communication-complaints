@@ -1,0 +1,293 @@
+"""Ministry of Communications — complaint intake, routing and tracking API."""
+
+import sqlite3
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, Response
+from fastapi.staticfiles import StaticFiles
+
+from . import repository as repo, services
+from .db import UPLOAD_DIR, db_dependency, init_db, write_db_dependency
+from .domain import ComplaintType, Priority, Status
+from .schemas import (
+    ComplaintCreate,
+    ComplaintCreated,
+    ComplaintOut,
+    ComplaintUpdate,
+    PagedComplaints,
+    Stats,
+    TrackingOut,
+)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+
+app = FastAPI(
+    title="منصة شكاوى وزارة الاتصالات — Ministry of Communications Complaints API",
+    description=(
+        "استقبال شكاوى واستفسارات المواطنين، تصنيفها، تحديد أولويتها، "
+        "توجيهها للجهة المسؤولة، ومتابعة حالتها."
+    ),
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+# The frontend is served from a different origin during development.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+DB = Depends(db_dependency)          # read-only routes
+WRITE_DB = Depends(write_db_dependency)  # routes that modify data
+
+
+def _load(conn: sqlite3.Connection, complaint_id: int) -> dict:
+    complaint = repo.get_complaint(conn, complaint_id)
+    if not complaint:
+        raise HTTPException(404, "الشكوى غير موجودة / complaint not found")
+    return complaint
+
+
+# ---------------------------------------------------------------------------
+# metadata
+# ---------------------------------------------------------------------------
+
+@app.get("/api/health", tags=["meta"])
+def health() -> dict:
+    return {"status": "ok"}
+
+
+@app.get("/api/meta", tags=["meta"])
+def meta(conn: sqlite3.Connection = DB) -> dict:
+    """Statuses, priorities, types, departments and legal transitions."""
+    return services.metadata(conn)
+
+
+# ---------------------------------------------------------------------------
+# complaints
+# ---------------------------------------------------------------------------
+
+@app.post("/api/complaints", response_model=ComplaintCreated, status_code=201,
+          tags=["complaints"])
+def create_complaint(
+    payload: ComplaintCreate, conn: sqlite3.Connection = WRITE_DB
+) -> ComplaintCreated:
+    """Submit a complaint as JSON (no attachments)."""
+    result = services.create_complaint(conn, payload, files=None)
+    return ComplaintCreated(
+        complaint=services.complaint_view(conn, result["complaint"]),
+        auto_classified=result["auto_classified"],
+        confidence=result["confidence"],
+        possible_duplicates=result["possible_duplicates"],
+    )
+
+
+@app.post("/api/complaints/upload", response_model=ComplaintCreated, status_code=201,
+          tags=["complaints"])
+def create_complaint_with_files(
+    citizen_name: str = Form(...),
+    citizen_phone: str = Form(...),
+    governorate: str = Form(...),
+    title: str = Form(...),
+    description: str = Form(...),
+    citizen_email: str | None = Form(None),
+    type: str | None = Form(None),
+    priority: str | None = Form(None),
+    files: list[UploadFile] = File(default=[]),
+    conn: sqlite3.Connection = WRITE_DB,
+) -> ComplaintCreated:
+    """Submit a complaint as multipart/form-data with up to 5 attachments."""
+    payload = ComplaintCreate(
+        citizen_name=citizen_name,
+        citizen_phone=citizen_phone,
+        citizen_email=citizen_email or None,
+        governorate=governorate,
+        title=title,
+        description=description,
+        type=type or None,
+        priority=priority or None,
+    )
+    result = services.create_complaint(conn, payload, files=files)
+    return ComplaintCreated(
+        complaint=services.complaint_view(conn, result["complaint"]),
+        auto_classified=result["auto_classified"],
+        confidence=result["confidence"],
+        possible_duplicates=result["possible_duplicates"],
+    )
+
+
+@app.get("/api/complaints", response_model=PagedComplaints, tags=["complaints"])
+def list_complaints(
+    status: list[Status] = Query(default=[]),
+    type: list[ComplaintType] = Query(default=[]),
+    priority: list[Priority] = Query(default=[]),
+    department: str | None = None,
+    assignee: str | None = None,
+    q: str | None = None,
+    sort: str = "created_at",
+    order: str = "desc",
+    page: int = 1,
+    per_page: int = 20,
+    conn: sqlite3.Connection = DB,
+) -> PagedComplaints:
+    """Filter, search, sort and paginate complaints for the staff dashboard."""
+    rows, total = repo.search_complaints(
+        conn,
+        status=[s.value for s in status],
+        type_=[t.value for t in type],
+        priority=[p.value for p in priority],
+        department_code=department,
+        assignee=assignee,
+        q=q,
+        sort=sort,
+        order=order,
+        page=page,
+        per_page=per_page,
+    )
+    # One lookup for the whole page instead of a query per row.
+    departments = {d["id"]: d for d in repo.list_departments(conn)}
+    per_page = max(1, min(per_page, 100))
+    return PagedComplaints(
+        items=[services.summary_view(r, departments) for r in rows],
+        total=total,
+        page=max(1, page),
+        per_page=per_page,
+        pages=(total + per_page - 1) // per_page,
+    )
+
+
+@app.get("/api/complaints.csv", tags=["complaints"])
+def export_complaints(
+    status: list[Status] = Query(default=[]),
+    type: list[ComplaintType] = Query(default=[]),
+    priority: list[Priority] = Query(default=[]),
+    department: str | None = None,
+    q: str | None = None,
+    conn: sqlite3.Connection = DB,
+) -> Response:
+    """Same filters as the list endpoint, returned as a CSV download."""
+    rows, _ = repo.search_complaints(
+        conn,
+        status=[s.value for s in status],
+        type_=[t.value for t in type],
+        priority=[p.value for p in priority],
+        department_code=department,
+        q=q,
+        per_page=100,
+        page=1,
+    )
+    # UTF-8 BOM so Excel opens the Arabic columns correctly.
+    body = "﻿" + services.to_csv(conn, rows)
+    return Response(
+        content=body,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="complaints.csv"'},
+    )
+
+
+@app.get("/api/complaints/{complaint_id}", response_model=ComplaintOut,
+         tags=["complaints"])
+def get_complaint(complaint_id: int, conn: sqlite3.Connection = DB) -> ComplaintOut:
+    return services.complaint_view(conn, _load(conn, complaint_id))
+
+
+@app.patch("/api/complaints/{complaint_id}", response_model=ComplaintOut,
+           tags=["complaints"])
+def update_complaint(
+    complaint_id: int, payload: ComplaintUpdate, conn: sqlite3.Connection = WRITE_DB
+) -> ComplaintOut:
+    """Change status, priority, type, department, assignee or resolution."""
+    complaint = _load(conn, complaint_id)
+    updated = services.apply_update(conn, complaint, payload)
+    return services.complaint_view(conn, updated)
+
+
+@app.delete("/api/complaints/{complaint_id}", status_code=204, tags=["complaints"])
+def delete_complaint(complaint_id: int, conn: sqlite3.Connection = WRITE_DB) -> None:
+    complaint = _load(conn, complaint_id)
+    for attachment in repo.list_attachments(conn, complaint_id):
+        (UPLOAD_DIR / attachment["stored_name"]).unlink(missing_ok=True)
+    repo.delete_complaint(conn, complaint["id"])
+
+
+@app.get("/api/complaints/{complaint_id}/events", tags=["complaints"])
+def complaint_events(complaint_id: int, conn: sqlite3.Connection = DB) -> list[dict]:
+    """The full update log for one complaint."""
+    _load(conn, complaint_id)
+    return repo.list_events(conn, complaint_id)
+
+
+# ---------------------------------------------------------------------------
+# attachments
+# ---------------------------------------------------------------------------
+
+@app.post("/api/complaints/{complaint_id}/attachments", status_code=201,
+          tags=["attachments"])
+def upload_attachments(
+    complaint_id: int,
+    files: list[UploadFile] = File(...),
+    actor: str = Form("موظف"),
+    conn: sqlite3.Connection = WRITE_DB,
+) -> list[dict]:
+    _load(conn, complaint_id)
+    saved = services.save_attachments(conn, complaint_id, files, actor)
+    return [services.attachment_view(a) for a in saved]
+
+
+@app.get("/api/attachments/{attachment_id}", tags=["attachments"])
+def download_attachment(attachment_id: int, conn: sqlite3.Connection = DB) -> FileResponse:
+    attachment = repo.get_attachment(conn, attachment_id)
+    if not attachment:
+        raise HTTPException(404, "المرفق غير موجود / attachment not found")
+    path = UPLOAD_DIR / attachment["stored_name"]
+    if not path.exists():
+        raise HTTPException(404, "الملف مفقود على الخادم / file missing on disk")
+    return FileResponse(
+        path,
+        media_type=attachment["content_type"] or "application/octet-stream",
+        filename=attachment["filename"],
+    )
+
+
+# ---------------------------------------------------------------------------
+# public tracking
+# ---------------------------------------------------------------------------
+
+@app.get("/api/track/{reference_no}", response_model=TrackingOut, tags=["tracking"])
+def track(reference_no: str, conn: sqlite3.Connection = DB) -> TrackingOut:
+    """Look a complaint up by its reference number — no contact details returned."""
+    complaint = repo.get_by_reference(conn, reference_no)
+    if not complaint:
+        raise HTTPException(404, "رقم مرجعي غير صحيح / unknown reference number")
+    return services.tracking_view(conn, complaint)
+
+
+# ---------------------------------------------------------------------------
+# dashboard
+# ---------------------------------------------------------------------------
+
+@app.get("/api/stats", response_model=Stats, tags=["dashboard"])
+def dashboard_stats(days: int = 14, conn: sqlite3.Connection = DB) -> Stats:
+    """Counts by status, type, priority and department, plus a daily trend."""
+    return repo.stats(conn, recent_days=max(1, min(days, 90)))
+
+
+# ---------------------------------------------------------------------------
+# frontend
+# ---------------------------------------------------------------------------
+
+# Mounted last so it never shadows an /api route. One server serves both.
+FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
+if FRONTEND_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

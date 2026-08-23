@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<![CDATA[<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+@font-face{font-family:'Hayyakum';src:url('assets/HayyakumAllah-Bold.ttf') format('truetype');font-weight:700}
+@font-face{font-family:'Hayyakum';src:url('assets/HayyakumAllah-Medium.ttf') format('truetype');font-weight:500}
+@font-face{font-family:'Hayyakum';src:url('assets/HayyakumAllah-Regular.ttf') format('truetype');font-weight:400}
+html,body{margin:0;padding:0;background:#faf9f5}
+body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;color:#161616}
+*{box-sizing:border-box}
+a{color:#054239;text-decoration:none}
+a:hover{color:#988561}
+input,select,textarea,button{font-family:inherit}
+::placeholder{color:#9a9791}
+</style>
+</helmet>
+<div dir="rtl" style="min-height:100vh;background:#faf9f5">
+
+  <div style="background:#002623;color:#b9a779;font-size:12.5px;padding:7px 40px;display:flex;justify-content:space-between;align-items:center;letter-spacing:.2px">
+    <div style="display:flex;gap:18px;align-items:center"><span>الجمهورية العربية السورية</span><span style="opacity:.45">|</span><span>البوابة الرسمية للحكومة السورية</span></div>
+    <div style="display:flex;gap:18px;align-items:center"><span>العربية</span><span style="opacity:.45">|</span><span style="opacity:.7">English</span></div>
+  </div>
+
+  <header style="background:#054239;padding:0 40px;display:flex;align-items:center;justify-content:space-between;gap:32px;box-shadow:0 1px 0 rgba(185,167,121,.35)">
+    <div style="display:flex;align-items:center;gap:16px;padding:18px 0">
+      <img src="assets/logo-h-white.svg" alt="وزارة الاتصالات" style="height:44px;display:block">
+      <div style="width:1px;height:38px;background:rgba(185,167,121,.4)"></div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <span style="color:#ffffff;font-size:15.5px;font-weight:600;line-height:1.2">وزارة الاتصالات وتقانة المعلومات</span>
+        <span style="color:#b9a779;font-size:12.5px;line-height:1.2">منصة الشكاوى والاستفسارات</span>
+      </div>
+    </div>
+    <nav style="display:flex;gap:4px;align-items:stretch;height:100%">
+      <button onClick="{{ goHome }}" style="background:{{ navHomeBg }};color:{{ navHomeFg }};border:0;border-bottom:3px solid {{ navHomeBar }};padding:26px 22px 23px;font-size:14.5px;font-weight:500;cursor:pointer;white-space:nowrap">الرئيسية</button>
+      <button onClick="{{ goSubmit }}" style="background:{{ navSubmitBg }};color:{{ navSubmitFg }};border:0;border-bottom:3px solid {{ navSubmitBar }};padding:26px 22px 23px;font-size:14.5px;font-weight:500;cursor:pointer;white-space:nowrap">تقديم شكوى</button>
+      <button onClick="{{ goAdmin }}" style="background:{{ navAdminBg }};color:{{ navAdminFg }};border:0;border-bottom:3px solid {{ navAdminBar }};padding:26px 22px 23px;font-size:14.5px;font-weight:500;cursor:pointer;white-space:nowrap">لوحة الإدارة</button>
+    </nav>
+  </header>
+
+  <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+  <main>
+    <section style="background:#054239;background-image:radial-gradient(circle at 88% 12%, rgba(185,167,121,.22), transparent 42%),linear-gradient(180deg,#054239,#002623);padding:76px 40px 88px">
+      <div style="max-width:1180px;margin:0 auto;display:grid;grid-template-columns:1.15fr .85fr;gap:56px;align-items:center">
+        <div>
+          <div style="display:inline-flex;align-items:center;gap:9px;border:1px solid rgba(185,167,121,.5);color:#b9a779;border-radius:2px;padding:6px 12px;font-size:12.5px;margin-bottom:22px;white-space:nowrap">
+            <span style="width:6px;height:6px;background:#b9a779;border-radius:50%"></span>خدمة إلكترونية · متاحة ٢٤/٧
+          </div>
+          <h1 style="font-family:'Hayyakum','IBM Plex Sans Arabic',serif;color:#ffffff;font-size:52px;line-height:1.25;margin:0 0 18px;font-weight:700;text-wrap:pretty">شكواك تصل إلى الجهة المختصة مباشرة</h1>
+          <p style="color:#dfe6e3;font-size:17.5px;line-height:1.75;margin:0 0 32px;max-width:600px;text-wrap:pretty">قدّم شكواك أو استفسارك حول خدمات الاتصالات والإنترنت، ليتم تصنيفه تلقائياً وتحويله إلى الدائرة المسؤولة، مع رقم مرجعي تتابع به حالة الطلب حتى إغلاقه.</p>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <button onClick="{{ goSubmit }}" style="background:#b9a779;color:#002623;border:0;border-radius:3px;padding:15px 28px;font-size:15.5px;font-weight:600;cursor:pointer" style-hover="background:#cbbb92">تقديم شكوى جديدة</button>
+            <button onClick="{{ goAdmin }}" style="background:transparent;color:#edebe0;border:1px solid rgba(237,235,224,.45);border-radius:3px;padding:15px 28px;font-size:15.5px;font-weight:500;cursor:pointer" style-hover="background:rgba(237,235,224,.1)">لوحة الإدارة</button>
+          </div>
+        </div>
+        <div style="background:rgba(237,235,224,.06);border:1px solid rgba(185,167,121,.35);border-radius:4px;padding:30px">
+          <h2 style="color:#ffffff;font-size:19px;margin:0 0 8px;font-weight:600">تتبع شكوى</h2>
+          <p style="color:#b9c6c1;font-size:13.5px;margin:0 0 20px;line-height:1.6">أدخل الرقم المرجعي الذي وصلك عبر الرسائل القصيرة.</p>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <input value="{{ trackRef }}" onChange="{{ onTrack }}" placeholder="MOCT-2026-000000" style="background:#ffffff;border:1px solid rgba(185,167,121,.5);border-radius:3px;padding:14px 15px;font-size:15px;color:#161616;letter-spacing:.5px">
+            <button onClick="{{ doTrack }}" style="background:#ffffff;color:#054239;border:0;border-radius:3px;padding:14px;font-size:15px;font-weight:600;cursor:pointer" style-hover="background:#edebe0">استعلام</button>
+          </div>
+          <sc-if value="{{ trackFound }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:18px;border-top:1px solid rgba(185,167,121,.3);padding-top:16px;display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;justify-content:space-between;font-size:13.5px;color:#edebe0"><span style="color:#9fb3ad">الحالة</span><span style="color:#b9a779;font-weight:600">{{ trackStatus }}</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:13.5px;color:#edebe0"><span style="color:#9fb3ad">الجهة</span><span>{{ trackDept }}</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:13.5px;color:#edebe0"><span style="color:#9fb3ad">آخر تحديث</span><span>{{ trackDate }}</span></div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </section>
+
+    <section style="background:#edebe0;padding:22px 40px;border-bottom:1px solid rgba(5,66,57,.1)">
+      <div style="max-width:1180px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:24px">
+        <div style="display:flex;flex-direction:column;gap:4px"><span style="font-family:'Hayyakum','IBM Plex Sans Arabic',serif;font-size:30px;color:#054239;font-weight:700">١٢٤٨٠</span><span style="font-size:13px;color:#5a6a66">شكوى مستلمة هذا العام</span></div>
+        <div style="display:flex;flex-direction:column;gap:4px"><span style="font-family:'Hayyakum','IBM Plex Sans Arabic',serif;font-size:30px;color:#054239;font-weight:700">٨٩٪</span><span style="font-size:13px;color:#5a6a66">نسبة الحل خلال المهلة</span></div>
+        <div style="display:flex;flex-direction:column;gap:4px"><span style="font-family:'Hayyakum','IBM Plex Sans Arabic',serif;font-size:30px;color:#054239;font-weight:700">٤١ ساعة</span><span style="font-size:13px;color:#5a6a66">متوسط زمن المعالجة</span></div>
+        <div style="display:flex;flex-direction:column;gap:4px"><span style="font-family:'Hayyakum','IBM Plex Sans Arabic',serif;font-size:30px;color:#054239;font-weight:700">١٤ دائرة</span><span style="font-size:13px;color:#5a6a66">جهة مرتبطة بالمنصة</span></div>
+      </div>
+    </section>
+
+    <section style="padding:64px 40px;max-width:1180px;margin:0 auto">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:26px">
+        <h2 style="font-family:'Hayyakum','IBM Plex Sans Arabic',serif;font-size:30px;color:#054239;margin:0;font-weight:700">تصنيفات الشكاوى</h2>
+        <span style="font-size:13.5px;color:#5a6a66">اختر التصنيف الأقرب لمشكلتك، وسنوجّهها للدائرة المسؤولة</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px">
+        <sc-for list="{{ categories }}" as="c" hint-placeholder-count="6">
+          <button onClick="{{ c.pick }}" style="text-align:right;background:#ffffff;border:1px solid rgba(5,66,57,.14);border-top:3px solid #b9a779;border-radius:3px;padding:24px;cursor:pointer;display:flex;flex-direction:column;gap:9px" style-hover="border-color:#428177;box-shadow:0 6px 20px rgba(0,38,35,.08)">
+            <span style="font-size:12px;color:#988561;letter-spacing:1px">{{ c.code }}</span>
+            <span style="font-size:18px;color:#054239;font-weight:600">{{ c.name }}</span>
+            <span style="font-size:13.5px;color:#5a6a66;line-height:1.7">{{ c.desc }}</span>
+            <span style="font-size:12.5px;color:#428177;margin-top:4px">الدائرة المسؤولة: {{ c.dept }}</span>
+          </button>
+        </sc-for>
+      </div>
+    </section>
+
+    <section style="background:#ffffff;border-top:1px solid rgba(5,66,57,.1);padding:60px 40px">
+      <div style="max-width:1180px;margin:0 auto">
+        <h2 style="font-family:'Hayyakum','IBM Plex Sans Arabic',serif;font-size:30px;color:#054239;margin:0 0 32px;font-weight:700">كيف تُعالج شكواك</h2>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px">
+          <div style="display:flex;flex-direction:column;gap:10px;padding-left:20px;border-left:1px solid rgba(5,66,57,.12)"><span style="font-family:'Hayyakum','IBM Plex Sans Arabic',serif;font-size:26px;color:#b9a779;font-weight:700">٠١</span><span style="font-size:16px;color:#054239;font-weight:600">الاستلام</span><span style="font-size:13.5px;color:#5a6a66;line-height:1.7">تُسجّل الشكوى ويُصدر لها رقم مرجعي فوري.</span></div>
+          <div style="display:flex;flex-direction:column;gap:10px;padding-left:20px;border-left:1px solid rgba(5,66,57,.12)"><span style="font-family:'Hayyakum','IBM Plex Sans Arabic',serif;font-size:26px;color:#b9a779;font-weight:700">٠٢</span><span style="font-size:16px;color:#054239;font-weight:600">التصنيف</span><span style="font-size:13.5px;color:#5a6a66;line-height:1.7">تحديد النوع والأولوية آلياً حسب الوصف والمرفقات.</span></div>
+          <div style="display:flex;flex-direction:column;gap:10px;padding-left:20px;border-left:1px solid rgba(5,66,57,.12)"><span style="font-family:'Hayyakum','IBM Plex Sans Arabic',serif;font-size:26px;color:#b9a779;font-weight:700">٠٣</span><span style="font-size:16px;color:#054239;font-weight:600">التحويل</span><span style="font-size:13.5px;color:#5a6a66;line-height:1.7">إحالة الشكوى إلى الدائرة المختصة وتعيين مسؤول.</span></div>
+          <div style="display:flex;flex-direction:column;gap:10px"><span style="font-family:'Hayyakum','IBM Plex Sans Arabic',serif;font-size:26px;color:#b9a779;font-weight:700">٠٤</span><span style="font-size:16px;color:#054239;font-weight:600">المتابعة والإغلاق</span><span style="font-size:13.5px;color:#5a6a66;line-height:1.7">تحديثات دورية حتى الحل، ثم تقييم الخدمة.</span></div>
+        </div>
+      </div>
+    </section>
+  </main>
+  </sc-if>
+
+  <sc-if value="{{ isSubmit }}" hint-placeholder-val="{{ false }}">
+  <main style="padding:44px 40px 72px">
+    <div style="max-width:980px;margin:0 auto">
+      <div style="font-size:13px;color:#5a6a66;margin-bottom:14px">الرئيسية · تقديم شكوى</div>
+
+      <sc-if value="{{ notSent }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <h1 style="font-family:'Hayyakum','IBM Plex Sans Arabic',serif;font-size:38px;color:#054239;margin:0 0 8px;font-weight:700">نموذج تقديم شكوى أو استفسار</h1>
+        <p style="font-size:15px;color:#5a6a66;margin:0 0 28px;line-height:1.7">الحقول المؤشّرة بعلامة<span style="color:#8c1c2a"> *</span> إلزامية. سيصلك الرقم المرجعي عبر رسالة قصيرة.</p>
+
+        <div style="background:#ffffff;border:1px solid rgba(5,66,57,.14);border-radius:4px">
+          <div style="background:#edebe0;border-bottom:1px solid rgba(5,66,57,.14);padding:14px 26px;display:flex;gap:26px;font-size:13.5px;color:#054239">
+            <span style="font-weight:600;border-bottom:2px solid #b9a779;padding-bottom:12px;margin-bottom:-14px">١. بيانات الشكوى</span>
+            <span style="color:#8b968f">٢. المرفقات</span>
+            <span style="color:#8b968f">٣. بيانات التواصل</span>
+          </div>
+
+          <div style="padding:28px 26px;display:flex;flex-direction:column;gap:22px">
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px">
+              <label style="display:flex;flex-direction:column;gap:8px;font-size:13.5px;color:#3d3a3b;font-weight:500;min-width:0"><span style="display:flex;gap:4px;align-items:baseline">نوع الشكوى<span style="color:#8c1c2a">*</span></span>
+                <select value="{{ fType }}" onChange="{{ onType }}" style="width:100%;min-width:0;border:1px solid rgba(5,66,57,.25);border-radius:3px;padding:13px 12px;font-size:14.5px;background:#ffffff;color:#161616">
+                  <option>انقطاع خدمة الإنترنت</option>
+                  <option>بطء في السرعة</option>
+                  <option>مشكلة في الخط الأرضي</option>
+                  <option>فاتورة أو رصيد</option>
+                  <option>خدمة الهاتف المحمول</option>
+                  <option>استفسار عام</option>
+                </select>
+              </label>
+              <label style="display:flex;flex-direction:column;gap:8px;font-size:13.5px;color:#3d3a3b;font-weight:500;min-width:0"><span style="display:flex;gap:4px;align-items:baseline">المحافظة<span style="color:#8c1c2a">*</span></span>
+                <select value="{{ fGov }}" onChange="{{ onGov }}" style="width:100%;min-width:0;border:1px solid rgba(5,66,57,.25);border-radius:3px;padding:13px 12px;font-size:14.5px;background:#ffffff;color:#161616">
+                  <option>دمشق</option><option>ريف دمشق</option><option>حلب</option><option>حمص</option><option>حماة</option><option>اللاذقية</option><option>طرطوس</option><option>دير الزور</option><option>الحسكة</option><option>إدلب</option><option>درعا</option><option>السويداء</option><option>القنيطرة</option><option>الرقة</option>
+                </select>
+              </label>
+            </div>
+
+            <label style="display:flex;flex-direction:column;gap:8px;font-size:13.5px;color:#3d3a3b;font-weight:500;min-width:0"><span style="display:flex;gap:4px;align-items:baseline">عنوان مختصر<span style="color:#8c1c2a">*</span></span>
+              <input value="{{ fTitle }}" onChange="{{ onTitle }}" placeholder="مثال: انقطاع الإنترنت في حي المزة منذ ثلاثة أيام" style="width:100%;min-width:0;border:1px solid rgba(5,66,57,.25);border-radius:3px;padding:13px 12px;font-size:14.5px">
+            </label>
+
+            <label style="display:flex;flex-direction:column;gap:8px;font-size:13.5px;color:#3d3a3b;font-weight:500;min-width:0"><span style="display:flex;gap:4px;align-items:baseline">وصف المشكلة<span style="color:#8c1c2a">*</span></span>
+              <textarea value="{{ fDesc }}" onChange="{{ onDesc }}" rows="5" placeholder="اذكر تفاصيل المشكلة، وقت حدوثها، ورقم الخط أو الحساب إن وُجد." style="width:100%;min-width:0;border:1px solid rgba(5,66,57,.25);border-radius:3px;padding:13px 12px;font-size:14.5px;line-height:1.8;resize:vertical"></textarea>
+              <span style="font-size:12px;color:#8b968f">{{ descCount }} / ٦٠٠ حرف</span>
+            </label>
+
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <span style="font-size:13.5px;color:#3d3a3b;font-weight:500">درجة الأهمية</span>
+              <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <sc-for list="{{ priorities }}" as="p" hint-placeholder-count="3">
+                  <button onClick="{{ p.pick }}" style="background:{{ p.bg }};color:{{ p.fg }};border:1px solid {{ p.bd }};border-radius:2px;padding:11px 20px;font-size:14px;font-weight:500;cursor:pointer">{{ p.name }}</button>
+                </sc-for>
+              </div>
+              <span style="font-size:12.5px;color:#8b968f">تُراجع الأولوية من قبل الدائرة المختصة بعد التصنيف.</span>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <span style="font-size:13.5px;color:#3d3a3b;font-weight:500">المرفقات</span>
+              <div onClick="{{ addFile }}" style="border:1.5px dashed rgba(5,66,57,.3);border-radius:3px;background:#faf9f5;padding:26px;text-align:center;cursor:pointer" style-hover="border-color:#428177;background:#f3f6f4">
+                <div style="font-size:14.5px;color:#054239;font-weight:500;margin-bottom:5px">إضافة صورة أو ملف</div>
+                <div style="font-size:12.5px;color:#8b968f">PNG · JPG · PDF — حتى ٥ ميغابايت للملف</div>
+              </div>
+              <sc-for list="{{ files }}" as="f" hint-placeholder-count="0">
+                <div style="display:flex;justify-content:space-between;align-items:center;background:#edebe0;border-radius:2px;padding:10px 12px;font-size:13.5px;color:#054239;margin-top:6px"><span>{{ f.name }}</span><span style="color:#8b968f">{{ f.size }}</span></div>
+              </sc-for>
+            </div>
+
+            <div style="height:1px;background:rgba(5,66,57,.12)"></div>
+
+            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px">
+              <label style="display:flex;flex-direction:column;gap:8px;font-size:13.5px;color:#3d3a3b;font-weight:500;min-width:0"><span style="display:flex;gap:4px;align-items:baseline">الاسم الكامل<span style="color:#8c1c2a">*</span></span>
+                <input value="{{ fName }}" onChange="{{ onName }}" style="width:100%;min-width:0;border:1px solid rgba(5,66,57,.25);border-radius:3px;padding:13px 12px;font-size:14.5px">
+              </label>
+              <label style="display:flex;flex-direction:column;gap:8px;font-size:13.5px;color:#3d3a3b;font-weight:500;min-width:0"><span style="display:flex;gap:4px;align-items:baseline">رقم الموبايل<span style="color:#8c1c2a">*</span></span>
+                <input value="{{ fPhone }}" onChange="{{ onPhone }}" placeholder="09XXXXXXXX" style="width:100%;min-width:0;border:1px solid rgba(5,66,57,.25);border-radius:3px;padding:13px 12px;font-size:14.5px">
+              </label>
+              <label style="display:flex;flex-direction:column;gap:8px;font-size:13.5px;color:#3d3a3b;font-weight:500;min-width:0">البريد الإلكتروني
+                <input value="{{ fEmail }}" onChange="{{ onEmail }}" style="width:100%;min-width:0;border:1px solid rgba(5,66,57,.25);border-radius:3px;padding:13px 12px;font-size:14.5px">
+              </label>
+            </div>
+          </div>
+
+          <div style="background:#faf9f5;border-top:1px solid rgba(5,66,57,.14);padding:20px 26px;display:flex;justify-content:space-between;align-items:center;gap:20px">
+            <span style="font-size:12.5px;color:#8b968f;line-height:1.6">بإرسال الطلب أنت توافق على معالجة بياناتك لغرض متابعة الشكوى وفق أحكام حماية البيانات.</span>
+            <div style="display:flex;gap:10px;flex:none">
+              <button onClick="{{ goHome }}" style="background:transparent;color:#054239;border:1px solid rgba(5,66,57,.3);border-radius:3px;padding:13px 22px;font-size:14.5px;cursor:pointer" style-hover="background:#edebe0">إلغاء</button>
+              <button onClick="{{ send }}" style="background:#054239;color:#ffffff;border:0;border-radius:3px;padding:13px 30px;font-size:14.5px;font-weight:600;cursor:pointer" style-hover="background:#002623">إرسال الشكوى</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ sent }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#ffffff;border:1px solid rgba(5,66,57,.14);border-top:4px solid #b9a779;border-radius:4px;padding:44px;text-align:center;max-width:640px;margin:20px auto 0">
+        <div style="width:56px;height:56px;border-radius:50%;background:#054239;color:#b9a779;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 20px">✓</div>
+        <h1 style="font-family:'Hayyakum','IBM Plex Sans Arabic',serif;font-size:30px;color:#054239;margin:0 0 10px;font-weight:700">تم استلام شكواك</h1>
+        <p style="font-size:14.5px;color:#5a6a66;margin:0 0 24px;line-height:1.8">تم تصنيف الشكوى وتحويلها إلى الدائرة المختصة. ستصلك التحديثات عبر الرسائل القصيرة.</p>
+        <div style="background:#edebe0;border-radius:3px;padding:18px;margin-bottom:22px">
+          <div style="font-size:12.5px;color:#5a6a66;margin-bottom:6px">الرقم المرجعي</div>
+          <div style="font-size:24px;color:#054239;font-weight:700;letter-spacing:1.5px">{{ newRef }}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;text-align:right;margin-bottom:26px">
+          <div style="border:1px solid rgba(5,66,57,.12);border-radius:3px;padding:14px"><div style="font-size:12px;color:#8b968f;margin-bottom:5px">التصنيف الآلي</div><div style="font-size:14.5px;color:#054239;font-weight:600">{{ fType }}</div></div>
+          <div style="border:1px solid rgba(5,66,57,.12);border-radius:3px;padding:14px"><div style="font-size:12px;color:#8b968f;margin-bottom:5px">الدائرة المسؤولة</div><div style="font-size:14.5px;color:#054239;font-weight:600">{{ routedDept }}</div></div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:center">
+          <button onClick="{{ goHome }}" style="background:#054239;color:#ffffff;border:0;border-radius:3px;padding:13px 26px;font-size:14.5px;font-weight:600;cursor:pointer">العودة للرئيسية</button>
+          <button onClick="{{ reset }}" style="background:transparent;color:#054239;border:1px solid rgba(5,66,57,.3);border-radius:3px;padding:13px 26px;font-size:14.5px;cursor:pointer">تقديم شكوى أخرى</button>
+        </div>
+      </div>
+      </sc-if>
+    </div>
+  </main>
+  </sc-if>
+
+  <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ false }}">
+  <main style="background:#f3f4f1;min-height:calc(100vh - 130px);display:grid;grid-template-columns:212px minmax(0,1fr)">
+    <aside style="background:#002623;padding:26px 0;display:flex;flex-direction:column;gap:2px">
+      <div style="padding:0 20px 18px;color:#b9a779;font-size:11.5px;letter-spacing:1.5px">إدارة الشكاوى</div>
+      <div style="padding:12px 20px;background:rgba(185,167,121,.16);color:#ffffff;font-size:14px;border-right:3px solid #b9a779">لوحة المؤشرات</div>
+      <div style="padding:12px 20px;color:#a9bab5;font-size:14px">الشكاوى الواردة</div>
+      <div style="padding:12px 20px;color:#a9bab5;font-size:14px">المُحوّلة إليّ</div>
+      <div style="padding:12px 20px;color:#a9bab5;font-size:14px">الدوائر</div>
+      <div style="padding:12px 20px;color:#a9bab5;font-size:14px">التقارير</div>
+      <div style="padding:12px 20px;color:#a9bab5;font-size:14px">قواعد التصنيف</div>
+      <div style="margin-top:auto;padding:16px 20px;border-top:1px solid rgba(185,167,121,.2);color:#a9bab5;font-size:12.5px;line-height:1.6">م. سامر الحلبي<br><span style="color:#7f938e">مدير دائرة الشكاوى</span></div>
+    </aside>
+
+    <div style="padding:26px 30px 60px;min-width:0">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:22px;gap:20px">
+        <div>
+          <h1 style="font-family:'Hayyakum','IBM Plex Sans Arabic',serif;font-size:28px;color:#054239;margin:0 0 5px;font-weight:700">لوحة إدارة الشكاوى</h1>
+          <span style="font-size:13px;color:#5a6a66">آخر تحديث للبيانات: اليوم ١٠:٤٢ صباحاً</span>
+        </div>
+        <div style="display:flex;gap:9px">
+          <button style="background:#ffffff;color:#054239;border:1px solid rgba(5,66,57,.2);border-radius:3px;padding:10px 16px;font-size:13.5px;cursor:pointer;white-space:nowrap">تصدير CSV</button>
+          <button style="background:#054239;color:#ffffff;border:0;border-radius:3px;padding:10px 16px;font-size:13.5px;font-weight:600;cursor:pointer;white-space:nowrap">إضافة شكوى يدوياً</button>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:14px;margin-bottom:22px">
+        <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="5">
+          <div style="background:#ffffff;border:1px solid rgba(5,66,57,.12);border-radius:3px;padding:16px 18px;display:flex;flex-direction:column;gap:7px">
+            <span style="font-size:12.5px;color:#5a6a66">{{ k.label }}</span>
+            <span style="font-family:'Hayyakum','IBM Plex Sans Arabic',serif;font-size:28px;color:#054239;font-weight:700;line-height:1">{{ k.value }}</span>
+            <span style="font-size:12px;color:{{ k.color }}">{{ k.delta }}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;margin-bottom:18px;align-items:stretch">
+        <div style="background:#ffffff;border:1px solid rgba(5,66,57,.12);border-radius:3px;padding:18px 20px;min-width:0">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px">
+            <span style="font-size:14px;color:#054239;font-weight:600">الشكاوى حسب التصنيف</span>
+            <span style="font-size:11.5px;color:#8b968f">آخر ٣٠ يوماً</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:11px">
+            <sc-for list="{{ byCat }}" as="b" hint-placeholder-count="6">
+              <div style="display:grid;grid-template-columns:minmax(0,118px) minmax(0,1fr) 38px;gap:10px;align-items:center">
+                <span style="font-size:12.5px;color:#3d3a3b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ b.name }}</span>
+                <span style="display:block;height:9px;background:#edebe0;border-radius:2px;overflow:hidden"><span style="display:block;height:9px;border-radius:2px;background:{{ b.c }};width:{{ b.w }}"></span></span>
+                <span style="font-size:12px;color:#054239;font-weight:600;text-align:left">{{ b.value }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="background:#ffffff;border:1px solid rgba(5,66,57,.12);border-radius:3px;padding:18px 20px;min-width:0">
+          <div style="font-size:14px;color:#054239;font-weight:600;margin-bottom:16px">توزّع الحالات</div>
+          <div style="display:flex;gap:18px;align-items:center">
+            <div style="flex:none;width:108px;height:108px;border-radius:50%;background:{{ donutBg }};display:flex;align-items:center;justify-content:center">
+              <div style="width:66px;height:66px;border-radius:50%;background:#ffffff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px">
+                <span style="font-family:'Hayyakum','IBM Plex Sans Arabic',serif;font-size:19px;color:#054239;font-weight:700;line-height:1">١٢٤</span>
+                <span style="font-size:10px;color:#8b968f">شكوى نشطة</span>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px;min-width:0">
+              <sc-for list="{{ donutLegend }}" as="d" hint-placeholder-count="5">
+                <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#3d3a3b">
+                  <span style="width:9px;height:9px;border-radius:2px;background:{{ d.c }};flex:none"></span>
+                  <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.label }}</span>
+                  <span style="color:#8b968f;margin-right:auto">{{ d.value }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:#ffffff;border:1px solid rgba(5,66,57,.12);border-radius:3px;padding:18px 20px;min-width:0;display:flex;flex-direction:column">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px">
+            <span style="font-size:14px;color:#054239;font-weight:600">الشكاوى الواردة يومياً</span>
+            <span style="font-size:11.5px;color:#8b968f">١٤ يوماً</span>
+          </div>
+          <div style="display:flex;align-items:flex-end;gap:5px;height:104px;border-bottom:1px solid rgba(5,66,57,.14);padding-bottom:2px">
+            <sc-for list="{{ trend }}" as="t" hint-placeholder-count="14">
+              <span title="{{ t.label }}" style="flex:1;min-width:0;height:{{ t.h }};background:{{ t.c }};border-radius:2px 2px 0 0"></span>
+            </sc-for>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:#8b968f;margin-top:7px">
+            <span>١٠ آب</span><span>١٧ آب</span><span>اليوم</span>
+          </div>
+          <div style="margin-top:14px;padding-top:13px;border-top:1px solid rgba(5,66,57,.1);display:flex;flex-direction:column;gap:8px">
+            <span style="font-size:12.5px;color:#054239;font-weight:600">الالتزام بالمهلة</span>
+            <span style="display:flex;height:9px;border-radius:2px;overflow:hidden;background:#edebe0">
+              <sc-for list="{{ sla }}" as="s" hint-placeholder-count="3">
+                <span style="height:9px;background:{{ s.c }};width:{{ s.w }}"></span>
+              </sc-for>
+            </span>
+            <div style="display:flex;gap:14px;flex-wrap:wrap">
+              <sc-for list="{{ sla }}" as="s" hint-placeholder-count="3">
+                <span style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#5a6a66;white-space:nowrap"><span style="width:8px;height:8px;border-radius:2px;background:{{ s.c }}"></span>{{ s.label }} {{ s.value }}</span>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(430px,1fr));gap:18px;align-items:start">
+        <div style="background:#ffffff;border:1px solid rgba(5,66,57,.12);border-radius:3px;min-width:0;overflow-x:auto">
+          <div style="padding:14px 18px;border-bottom:1px solid rgba(5,66,57,.12);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input value="{{ query }}" onChange="{{ onQuery }}" placeholder="بحث برقم مرجعي أو كلمة" style="border:1px solid rgba(5,66,57,.2);border-radius:2px;padding:9px 11px;font-size:13.5px;flex:1;min-width:180px">
+            <sc-for list="{{ filters }}" as="f" hint-placeholder-count="6">
+              <button onClick="{{ f.pick }}" style="background:{{ f.bg }};color:{{ f.fg }};border:1px solid {{ f.bd }};border-radius:20px;padding:7px 14px;font-size:12.5px;cursor:pointer;white-space:nowrap">{{ f.label }}</button>
+            </sc-for>
+          </div>
+          <div style="display:grid;grid-template-columns:112px minmax(160px,1fr) 130px 92px 108px;gap:0;background:#edebe0;font-size:12px;color:#5a6a66;padding:10px 18px;font-weight:600;min-width:640px">
+            <span>الرقم المرجعي</span><span>الموضوع</span><span>الدائرة</span><span>الأولوية</span><span>الحالة</span>
+          </div>
+          <sc-for list="{{ rows }}" as="r" hint-placeholder-count="7">
+            <div onClick="{{ r.pick }}" style="display:grid;grid-template-columns:112px minmax(160px,1fr) 130px 92px 108px;gap:0;align-items:center;padding:13px 18px;border-bottom:1px solid rgba(5,66,57,.08);cursor:pointer;background:{{ r.rowBg }};min-width:640px" style-hover="background:#f7f8f6">
+              <span style="font-size:12px;color:#988561;font-weight:600">{{ r.ref }}</span>
+              <span style="font-size:13.5px;color:#161616;padding-left:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.title }}</span>
+              <span style="font-size:12.5px;color:#5a6a66">{{ r.dept }}</span>
+              <span style="font-size:12.5px;color:{{ r.pFg }};font-weight:600;white-space:nowrap">{{ r.priority }}</span>
+              <span style="justify-self:start;font-size:12px;background:{{ r.sBg }};color:{{ r.sFg }};border-radius:20px;padding:4px 11px;font-weight:500;white-space:nowrap">{{ r.status }}</span>
+            </div>
+          </sc-for>
+          <div style="padding:13px 18px;display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:#5a6a66">
+            <span>عرض {{ rowCount }} من ١٢٤ شكوى</span>
+            <div style="display:flex;gap:6px">
+              <span style="background:#054239;color:#ffffff;border-radius:2px;padding:5px 10px">١</span>
+              <span style="border:1px solid rgba(5,66,57,.2);border-radius:2px;padding:5px 10px">٢</span>
+              <span style="border:1px solid rgba(5,66,57,.2);border-radius:2px;padding:5px 10px">٣</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:#ffffff;border:1px solid rgba(5,66,57,.12);border-top:3px solid #054239;border-radius:3px;padding:20px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:12px;color:#988561;font-weight:600">{{ selRef }}</span>
+            <span style="font-size:12px;background:{{ selBg }};color:{{ selFg }};border-radius:20px;padding:4px 11px;white-space:nowrap">{{ selStatus }}</span>
+          </div>
+          <h2 style="font-size:17px;color:#054239;margin:0 0 14px;font-weight:600;line-height:1.5">{{ selTitle }}</h2>
+          <p style="font-size:13.5px;color:#5a6a66;line-height:1.8;margin:0 0 18px">{{ selDesc }}</p>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px">
+            <div style="background:#faf9f5;border-radius:2px;padding:11px"><div style="font-size:11.5px;color:#8b968f;margin-bottom:4px">التصنيف</div><div style="font-size:13px;color:#054239;font-weight:600">{{ selType }}</div></div>
+            <div style="background:#faf9f5;border-radius:2px;padding:11px"><div style="font-size:11.5px;color:#8b968f;margin-bottom:4px">المحافظة</div><div style="font-size:13px;color:#054239;font-weight:600">{{ selGov }}</div></div>
+            <div style="background:#faf9f5;border-radius:2px;padding:11px"><div style="font-size:11.5px;color:#8b968f;margin-bottom:4px">الأولوية</div><div style="font-size:13px;color:{{ selPFg }};font-weight:600">{{ selPriority }}</div></div>
+            <div style="background:#faf9f5;border-radius:2px;padding:11px"><div style="font-size:11.5px;color:#8b968f;margin-bottom:4px">المسؤول</div><div style="font-size:13px;color:#054239;font-weight:600">{{ selOwner }}</div></div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-bottom:20px">
+            <button onClick="{{ advance }}" style="flex:1;background:#054239;color:#ffffff;border:0;border-radius:3px;padding:11px;font-size:13.5px;font-weight:600;cursor:pointer" style-hover="background:#002623">{{ advanceLabel }}</button>
+            <button style="background:transparent;color:#054239;border:1px solid rgba(5,66,57,.25);border-radius:3px;padding:11px 14px;font-size:13.5px;cursor:pointer;white-space:nowrap">إعادة تحويل</button>
+          </div>
+
+          <div style="font-size:12.5px;color:#988561;letter-spacing:1px;margin-bottom:12px">سجل التحديثات</div>
+          <div style="display:flex;flex-direction:column;gap:0">
+            <sc-for list="{{ timeline }}" as="t" hint-placeholder-count="4">
+              <div style="display:grid;grid-template-columns:14px 1fr;gap:12px;padding-bottom:16px">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:3px"><span style="width:9px;height:9px;border-radius:50%;background:{{ t.dot }};margin-top:5px"></span><span style="width:1px;flex:1;background:rgba(5,66,57,.15)"></span></div>
+                <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:13px;color:#161616;font-weight:500">{{ t.text }}</span><span style="font-size:11.5px;color:#8b968f">{{ t.meta }}</span></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+  </sc-if>
+
+  <footer style="background:#002623;color:#8fa39e;padding:26px 40px;display:flex;justify-content:space-between;align-items:center;font-size:12.5px;gap:20px">
+    <div style="display:flex;align-items:center;gap:14px"><img src="assets/logo-icon-gold.svg" alt="" style="height:26px"><span>وزارة الاتصالات وتقانة المعلومات — الجمهورية العربية السورية</span></div>
+    <div style="display:flex;gap:18px"><span>سياسة الخصوصية</span><span>الأسئلة الشائعة</span><span>اتصل بنا · ١٥٥٦</span></div>
+  </footer>
+</div>]]>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;home&quot;,&quot;submit&quot;,&quot;admin&quot;],&quot;default&quot;:&quot;home&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype&quot;}}">
+const AR = n => String(n).replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[+d]);
+const STATUS = {
+  'جديدة': ['#e7eeec', '#054239'],
+  'محوّلة': ['#efe7d4', '#7d6a3c'],
+  'قيد المعالجة': ['#dfeae6', '#0d6a5c'],
+  'تم الحل': ['#dceee1', '#1d6b3a'],
+  'مغلقة': ['#ececec', '#5a5a5a']
+};
+const PRI = { 'عالية': '#8c1c2a', 'متوسطة': '#98713c', 'منخفضة': '#5a6a66' };
+const FLOW = ['جديدة', 'محوّلة', 'قيد المعالجة', 'تم الحل', 'مغلقة'];
+
+const CATS = [
+  { code: 'C-01', name: 'انقطاع خدمة الإنترنت', desc: 'انقطاع كامل أو متكرر للخدمة في منطقة أو خط محدد.', dept: 'الشركة السورية للاتصالات' },
+  { code: 'C-02', name: 'بطء السرعة وجودة الخدمة', desc: 'سرعة أقل من المتعاقد عليها أو تذبذب في الاتصال.', dept: 'دائرة جودة الخدمة' },
+  { code: 'C-03', name: 'الفواتير والرصيد', desc: 'فاتورة غير صحيحة، خصم مبالغ، أو مشكلة في الدفع.', dept: 'الدائرة المالية' },
+  { code: 'C-04', name: 'الهاتف الأرضي', desc: 'خط معطّل، تشويش، أو طلب نقل خط.', dept: 'دائرة الشبكات الثابتة' },
+  { code: 'C-05', name: 'الخدمات الحكومية الرقمية', desc: 'مشكلة في منصة أو تطبيق حكومي إلكتروني.', dept: 'الحكومة الإلكترونية' },
+  { code: 'C-06', name: 'استفسار أو مقترح', desc: 'سؤال عن خدمة أو مقترح لتحسين الخدمات.', dept: 'مكتب خدمة المواطن' }
+];
+
+const ROWS = [
+  { ref: 'MOCT-2026-014287', title: 'انقطاع الإنترنت في حي المزة منذ ثلاثة أيام', dept: 'الشركة السورية للاتصالات', priority: 'عالية', status: 'قيد المعالجة', type: 'انقطاع خدمة الإنترنت', gov: 'دمشق', owner: 'م. رنا عبدو',
+    desc: 'المشترك يفيد بانقطاع كامل لخدمة ADSL عن كامل البناء منذ ٢٠ آب، مع استمرار عمل الخط الأرضي. تم توثيق شكاوى مشابهة من نفس المقسم.',
+    timeline: [ ['تم إحالة الشكوى إلى فريق الصيانة الميداني', 'م. رنا عبدو · اليوم ٠٩:١٥', '#054239'], ['تحديث الأولوية إلى «عالية» لتكرار الشكاوى من نفس المقسم', 'النظام · أمس ١٧:٤٠', '#8c1c2a'], ['تحويل إلى الشركة السورية للاتصالات', 'النظام · أمس ١١:٢٢', '#b9a779'], ['استلام الشكوى وتصنيفها آلياً', 'النظام · ٢٠ آب ٠٨:٥٥', '#428177'] ] },
+  { ref: 'MOCT-2026-014286', title: 'فاتورة إنترنت مضاعفة لشهر تموز', dept: 'الدائرة المالية', priority: 'متوسطة', status: 'محوّلة', type: 'الفواتير والرصيد', gov: 'حلب', owner: 'أ. لؤي حسن', desc: 'المشترك يذكر أن قيمة الفاتورة بلغت ضعف المعتاد دون تغيير الباقة.', timeline: [ ['تحويل إلى الدائرة المالية للمراجعة', 'النظام · اليوم ٠٨:٣٠', '#b9a779'], ['استلام الشكوى وتصنيفها آلياً', 'النظام · اليوم ٠٨:٢٩', '#428177'] ] },
+  { ref: 'MOCT-2026-014285', title: 'بطء شديد في السرعة أوقات المساء', dept: 'دائرة جودة الخدمة', priority: 'متوسطة', status: 'جديدة', type: 'بطء في السرعة', gov: 'اللاذقية', owner: '—', desc: 'انخفاض السرعة إلى أقل من ٢ ميغابت بين الثامنة والحادية عشرة مساءً.', timeline: [ ['استلام الشكوى وتصنيفها آلياً', 'النظام · اليوم ٠٧:١٢', '#428177'] ] },
+  { ref: 'MOCT-2026-014281', title: 'تعذّر إتمام الدفع في المنصة الحكومية', dept: 'الحكومة الإلكترونية', priority: 'عالية', status: 'قيد المعالجة', type: 'الخدمات الحكومية الرقمية', gov: 'حمص', owner: 'م. هبة الشيخ', desc: 'رسالة خطأ عند تأكيد الدفع الإلكتروني، مع خصم المبلغ من الحساب.', timeline: [ ['تم رفع تذكرة تقنية للمزود', 'م. هبة الشيخ · أمس ١٤:٠٠', '#054239'], ['استلام الشكوى', 'النظام · أمس ١٣:٤٥', '#428177'] ] },
+  { ref: 'MOCT-2026-014276', title: 'طلب نقل خط أرضي إلى عنوان جديد', dept: 'دائرة الشبكات الثابتة', priority: 'منخفضة', status: 'تم الحل', type: 'مشكلة في الخط الأرضي', gov: 'طرطوس', owner: 'أ. مازن كريم', desc: 'تم تنفيذ النقل وتشغيل الخط في العنوان الجديد.', timeline: [ ['إنجاز الطلب وإبلاغ المواطن', 'أ. مازن كريم · ٢١ آب', '#1d6b3a'], ['زيارة ميدانية', 'الفريق الفني · ٢٠ آب', '#054239'] ] },
+  { ref: 'MOCT-2026-014270', title: 'تشويش على الخط الأرضي في الحسكة', dept: 'دائرة الشبكات الثابتة', priority: 'متوسطة', status: 'مغلقة', type: 'مشكلة في الخط الأرضي', gov: 'الحسكة', owner: 'أ. نور العلي', desc: 'أُغلقت الشكوى بعد استبدال الكبل الواصل وتأكيد المواطن.', timeline: [ ['إغلاق الشكوى بعد تقييم المواطن ٥/٥', 'النظام · ١٩ آب', '#5a5a5a'], ['تم الحل', 'أ. نور العلي · ١٨ آب', '#1d6b3a'] ] },
+  { ref: 'MOCT-2026-014268', title: 'مقترح: إضافة خدمة تتبع الشكوى عبر الرسائل', dept: 'مكتب خدمة المواطن', priority: 'منخفضة', status: 'محوّلة', type: 'استفسار عام', gov: 'دمشق', owner: 'أ. سلمى ديب', desc: 'مقترح من مواطن لتمكين تتبع حالة الشكوى عبر رسالة قصيرة برقم مرجعي.', timeline: [ ['تحويل إلى مكتب خدمة المواطن', 'النظام · ١٨ آب', '#b9a779'] ] }
+];
+
+class Component extends DCLogic {
+  state = {
+    screen: this.props.startScreen || 'home',
+    track: '', tracked: false,
+    type: 'انقطاع خدمة الإنترنت', gov: 'دمشق', title: '', desc: '', priority: 'متوسطة',
+    files: [], name: '', phone: '', email: '', sent: false, ref: '',
+    filter: 'الكل', query: '', sel: 0, statusOverride: {}
+  };
+
+  go = s => this.setState({ screen: s });
+
+  chipStyle(active) {
+    return active
+      ? { bg: '#054239', fg: '#ffffff', bd: '#054239' }
+      : { bg: '#ffffff', fg: '#3d3a3b', bd: 'rgba(5,66,57,.22)' };
+  }
+
+  navStyle(name) {
+    const a = this.state.screen === name;
+    return { bg: a ? '#002623' : 'transparent', fg: a ? '#ffffff' : '#d5e0dd', bar: a ? '#b9a779' : 'transparent' };
+  }
+
+  rowStatus(i) { return this.state.statusOverride[i] || ROWS[i].status; }
+
+  renderVals() {
+    const s = this.state;
+    const nav = { home: this.navStyle('home'), submit: this.navStyle('submit'), admin: this.navStyle('admin') };
+
+    const q = s.query.trim();
+    const rows = ROWS.map((r, i) => ({ ...r, i, status: this.rowStatus(i) }))
+      .filter(r => s.filter === 'الكل' || r.status === s.filter || r.priority === s.filter)
+      .filter(r => !q || r.ref.includes(q) || r.title.includes(q))
+      .map(r => ({
+        ref: r.ref, title: r.title, dept: r.dept, priority: r.priority, status: r.status,
+        sBg: STATUS[r.status][0], sFg: STATUS[r.status][1], pFg: PRI[r.priority],
+        rowBg: r.i === s.sel ? '#f3f6f4' : '#ffffff',
+        pick: () => this.setState({ sel: r.i })
+      }));
+
+    const sel = ROWS[s.sel];
+    const selStatus = this.rowStatus(s.sel);
+    const next = FLOW[Math.min(FLOW.indexOf(selStatus) + 1, FLOW.length - 1)];
+
+    const tr = ROWS[0];
+
+    return {
+      isHome: s.screen === 'home', isSubmit: s.screen === 'submit', isAdmin: s.screen === 'admin',
+      goHome: () => this.go('home'), goSubmit: () => this.go('submit'), goAdmin: () => this.go('admin'),
+      navHomeBg: nav.home.bg, navHomeFg: nav.home.fg, navHomeBar: nav.home.bar,
+      navSubmitBg: nav.submit.bg, navSubmitFg: nav.submit.fg, navSubmitBar: nav.submit.bar,
+      navAdminBg: nav.admin.bg, navAdminFg: nav.admin.fg, navAdminBar: nav.admin.bar,
+
+      trackRef: s.track,
+      onTrack: e => this.setState({ track: e.target.value }),
+      doTrack: () => this.setState({ tracked: true }),
+      trackFound: s.tracked,
+      trackStatus: this.rowStatus(0), trackDept: tr.dept, trackDate: 'اليوم ٠٩:١٥',
+
+      categories: CATS.map(c => ({ ...c, pick: () => this.setState({ screen: 'submit', type: c.name }) })),
+
+      fType: s.type, fGov: s.gov, fTitle: s.title, fDesc: s.desc,
+      fName: s.name, fPhone: s.phone, fEmail: s.email,
+      onType: e => this.setState({ type: e.target.value }),
+      onGov: e => this.setState({ gov: e.target.value }),
+      onTitle: e => this.setState({ title: e.target.value }),
+      onDesc: e => this.setState({ desc: e.target.value.slice(0, 600) }),
+      onName: e => this.setState({ name: e.target.value }),
+      onPhone: e => this.setState({ phone: e.target.value }),
+      onEmail: e => this.setState({ email: e.target.value }),
+      descCount: AR(s.desc.length),
+      priorities: ['منخفضة', 'متوسطة', 'عالية'].map(p => ({
+        name: p, ...this.chipStyle(s.priority === p), pick: () => this.setState({ priority: p })
+      })),
+      files: s.files,
+      addFile: () => this.setState(st => ({ files: [...st.files, { name: 'صورة_المشكلة_' + AR(st.files.length + 1) + '.jpg', size: '١٫٢ م.ب' }] })),
+      send: () => this.setState({ sent: true, ref: 'MOCT-2026-' + AR(String(14290 + Math.floor(Math.random() * 60)).padStart(6, '0')) }),
+      reset: () => this.setState({ sent: false, title: '', desc: '', files: [] }),
+      notSent: !s.sent, sent: s.sent, newRef: s.ref,
+      routedDept: (CATS.find(c => c.name === s.type) || CATS[0]).dept,
+
+      kpis: [
+        { label: 'شكاوى جديدة اليوم', value: '٤٧', delta: '+١٢٪ عن أمس', color: '#8c1c2a' },
+        { label: 'قيد المعالجة', value: '١٣٨', delta: 'ضمن المهلة ٨٩٪', color: '#5a6a66' },
+        { label: 'متأخرة عن المهلة', value: '٩', delta: 'تحتاج تدخّل', color: '#8c1c2a' },
+        { label: 'تم حلها هذا الأسبوع', value: '٢١٤', delta: '+٨٪', color: '#1d6b3a' },
+        { label: 'متوسط زمن الحل', value: '٤١ س', delta: '−٦ ساعات', color: '#1d6b3a' }
+      ],
+      byCat: [
+        { name: 'انقطاع الإنترنت', value: '٣٤٢', w: '100%', c: '#054239' },
+        { name: 'بطء السرعة', value: '٢٦٨', w: '78%', c: '#0d6a5c' },
+        { name: 'الفواتير والرصيد', value: '١٩٤', w: '57%', c: '#428177' },
+        { name: 'الهاتف الأرضي', value: '١٣١', w: '38%', c: '#988561' },
+        { name: 'الخدمات الرقمية', value: '٨٦', w: '25%', c: '#b9a779' },
+        { name: 'استفسارات ومقترحات', value: '٤٧', w: '14%', c: '#cfc4a3' }
+      ],
+      donutBg: 'conic-gradient(#054239 0 22%, #0d6a5c 22% 47%, #428177 47% 68%, #988561 68% 88%, #cbcbcb 88% 100%)',
+      donutLegend: [
+        { label: 'جديدة', value: '٢٢٪', c: '#054239' },
+        { label: 'محوّلة', value: '٢٥٪', c: '#0d6a5c' },
+        { label: 'قيد المعالجة', value: '٢١٪', c: '#428177' },
+        { label: 'تم الحل', value: '٢٠٪', c: '#988561' },
+        { label: 'مغلقة', value: '١٢٪', c: '#cbcbcb' }
+      ],
+      trend: [34, 41, 38, 52, 47, 61, 55, 49, 58, 66, 44, 51, 63, 47].map((v, i) => ({
+        h: Math.round(v / 66 * 100) + '%',
+        c: i === 13 ? '#b9a779' : '#428177',
+        label: AR(v)
+      })),
+      sla: [
+        { label: 'ضمن المهلة', value: '٨٩٪', w: '89%', c: '#054239' },
+        { label: 'قاربت المهلة', value: '٧٪', w: '7%', c: '#988561' },
+        { label: 'متأخرة', value: '٤٪', w: '4%', c: '#8c1c2a' }
+      ],
+      filters: ['الكل', 'جديدة', 'محوّلة', 'قيد المعالجة', 'تم الحل', 'عالية'].map(f => ({
+        label: f, ...this.chipStyle(s.filter === f), pick: () => this.setState({ filter: f })
+      })),
+      query: s.query, onQuery: e => this.setState({ query: e.target.value }),
+      rows, rowCount: AR(rows.length),
+
+      selRef: sel.ref, selTitle: sel.title, selDesc: sel.desc, selType: sel.type,
+      selGov: sel.gov, selOwner: sel.owner, selPriority: sel.priority, selPFg: PRI[sel.priority],
+      selStatus, selBg: STATUS[selStatus][0], selFg: STATUS[selStatus][1],
+      advanceLabel: selStatus === 'مغلقة' ? 'الشكوى مغلقة' : 'تحديث الحالة إلى «' + next + '»',
+      advance: () => this.setState(st => ({ statusOverride: { ...st.statusOverride, [st.sel]: next } })),
+      timeline: sel.timeline.map(t => ({ text: t[0], meta: t[1], dot: t[2] }))
+    };
+  }
+}
+</script>
+</body>
+</html>

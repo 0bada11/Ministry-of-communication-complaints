@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Runtime data — database and citizen uploads
+backend/data/
+
+# Node
+node_modules/
+dist/

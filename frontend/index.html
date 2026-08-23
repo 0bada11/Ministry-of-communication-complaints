@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>منصة الشكاوى والاستفسارات — وزارة الاتصالات وتقانة المعلومات</title>
+<link rel="icon" href="assets/logo-icon-gold.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-group">
+    <span>الجمهورية العربية السورية</span>
+    <span class="sep">|</span>
+    <span>البوابة الرسمية للحكومة السورية</span>
+  </div>
+  <div class="topbar-group">
+    <span>العربية</span>
+    <span class="sep">|</span>
+    <span class="dim">English</span>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="masthead-brand">
+    <img src="assets/logo-h-white.svg" alt="وزارة الاتصالات">
+    <div class="masthead-rule"></div>
+    <div class="masthead-titles">
+      <span class="masthead-title">وزارة الاتصالات وتقانة المعلومات</span>
+      <span class="masthead-sub">منصة الشكاوى والاستفسارات</span>
+    </div>
+  </div>
+  <nav class="mainnav">
+    <button data-nav="home">الرئيسية</button>
+    <button data-nav="submit">تقديم شكوى</button>
+    <button data-nav="admin">لوحة الإدارة</button>
+  </nav>
+</header>
+
+<!-- ============================================================== home -->
+<main id="screen-home">
+  <section class="hero">
+    <div class="hero-inner">
+      <div>
+        <div class="hero-badge"><span></span>خدمة إلكترونية · متاحة ٢٤/٧</div>
+        <h1>شكواك تصل إلى الجهة المختصة مباشرة</h1>
+        <p>قدّم شكواك أو استفسارك حول خدمات الاتصالات والإنترنت، ليتم تصنيفه تلقائياً وتحويله إلى الدائرة المسؤولة، مع رقم مرجعي تتابع به حالة الطلب حتى إغلاقه.</p>
+        <div class="hero-actions">
+          <button class="btn-gold" data-nav="submit">تقديم شكوى جديدة</button>
+          <button class="btn-ghost-light" data-nav="admin">لوحة الإدارة</button>
+        </div>
+      </div>
+      <div class="track-card">
+        <h2>تتبع شكوى</h2>
+        <p>أدخل الرقم المرجعي الذي وصلك عبر الرسائل القصيرة.</p>
+        <form class="track-form" id="track-form">
+          <input id="track-input" placeholder="MOCT-2026-000000" autocomplete="off" aria-label="الرقم المرجعي">
+          <button type="submit">استعلام</button>
+        </form>
+        <div class="track-result" id="track-result" hidden>
+          <div class="track-row"><span class="key">الحالة</span><span class="val-strong" id="track-status"></span></div>
+          <div class="track-row"><span class="key">الجهة</span><span id="track-dept"></span></div>
+          <div class="track-row"><span class="key">آخر تحديث</span><span id="track-date"></span></div>
+        </div>
+        <div class="track-error" id="track-error" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="statstrip">
+    <div class="statstrip-inner" id="home-stats"></div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2>تصنيفات الشكاوى</h2>
+      <span>اختر التصنيف الأقرب لمشكلتك، وسنوجّهها للدائرة المسؤولة</span>
+    </div>
+    <div class="cat-grid" id="cat-grid"></div>
+  </section>
+
+  <section class="steps-section">
+    <div class="steps-inner">
+      <h2>كيف تُعالج شكواك</h2>
+      <div class="steps-grid">
+        <div class="step">
+          <span class="step-num">٠١</span>
+          <span class="step-title">الاستلام</span>
+          <span class="step-body">تُسجّل الشكوى ويُصدر لها رقم مرجعي فوري.</span>
+        </div>
+        <div class="step">
+          <span class="step-num">٠٢</span>
+          <span class="step-title">التصنيف</span>
+          <span class="step-body">تحديد النوع والأولوية آلياً حسب الوصف والمرفقات.</span>
+        </div>
+        <div class="step">
+          <span class="step-num">٠٣</span>
+          <span class="step-title">التحويل</span>
+          <span class="step-body">إحالة الشكوى إلى الدائرة المختصة وتعيين مسؤول.</span>
+        </div>
+        <div class="step">
+          <span class="step-num">٠٤</span>
+          <span class="step-title">المتابعة والإغلاق</span>
+          <span class="step-body">تحديثات دورية حتى الحل، ثم تقييم الخدمة.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ============================================================ submit -->
+<main id="screen-submit" class="submit-main" hidden>
+  <div class="submit-inner">
+    <div class="crumbs">الرئيسية · تقديم شكوى</div>
+
+    <div id="submit-form-wrap">
+      <h1>نموذج تقديم شكوى أو استفسار</h1>
+      <p class="submit-lede">الحقول المؤشّرة بعلامة<span class="req"> *</span> إلزامية. سيصلك الرقم المرجعي عبر رسالة قصيرة.</p>
+
+      <form class="panel" id="complaint-form" novalidate>
+        <div class="panel-steps">
+          <span class="on">١. بيانات الشكوى</span>
+          <span class="off">٢. المرفقات</span>
+          <span class="off">٣. بيانات التواصل</span>
+        </div>
+
+        <div class="panel-body">
+          <div class="grid-2">
+            <label class="field">
+              <span class="field-label">نوع الشكوى<span class="req">*</span></span>
+              <select id="f-type" name="type"></select>
+            </label>
+            <label class="field">
+              <span class="field-label">المحافظة<span class="req">*</span></span>
+              <select id="f-gov" name="governorate"></select>
+            </label>
+          </div>
+
+          <label class="field">
+            <span class="field-label">عنوان مختصر<span class="req">*</span></span>
+            <input id="f-title" name="title" placeholder="مثال: انقطاع الإنترنت في حي المزة منذ ثلاثة أيام">
+            <span class="field-error" data-error-for="title" hidden></span>
+          </label>
+
+          <label class="field">
+            <span class="field-label">وصف المشكلة<span class="req">*</span></span>
+            <textarea id="f-desc" name="description" rows="5" maxlength="600" placeholder="اذكر تفاصيل المشكلة، وقت حدوثها، ورقم الخط أو الحساب إن وُجد."></textarea>
+            <span class="field-hint"><span id="desc-count">٠</span> / ٦٠٠ حرف</span>
+            <span class="field-error" data-error-for="description" hidden></span>
+          </label>
+
+          <div class="pri-block">
+            <span class="pri-label">درجة الأهمية</span>
+            <div class="pri-row" id="pri-row"></div>
+            <span class="pri-note">تُراجع الأولوية من قبل الدائرة المختصة بعد التصنيف.</span>
+          </div>
+
+          <div class="files-block">
+            <span class="files-label">المرفقات</span>
+            <div class="dropzone" id="dropzone" role="button" tabindex="0">
+              <div class="dropzone-title">إضافة صورة أو ملف</div>
+              <div class="dropzone-hint">PNG · JPG · PDF — حتى ٥ ميغابايت للملف</div>
+            </div>
+            <input type="file" id="file-input" multiple hidden
+                   accept=".png,.jpg,.jpeg,.gif,.webp,.pdf,.doc,.docx,.txt,.mp4,.mp3">
+            <div id="file-list"></div>
+          </div>
+
+          <div class="rule"></div>
+
+          <div class="grid-3">
+            <label class="field">
+              <span class="field-label">الاسم الكامل<span class="req">*</span></span>
+              <input id="f-name" name="citizen_name" autocomplete="name">
+              <span class="field-error" data-error-for="citizen_name" hidden></span>
+            </label>
+            <label class="field">
+              <span class="field-label">رقم الموبايل<span class="req">*</span></span>
+              <input id="f-phone" name="citizen_phone" placeholder="09XXXXXXXX" autocomplete="tel">
+              <span class="field-error" data-error-for="citizen_phone" hidden></span>
+            </label>
+            <label class="field">
+              البريد الإلكتروني
+              <input id="f-email" name="citizen_email" autocomplete="email">
+              <span class="field-error" data-error-for="citizen_email" hidden></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="panel-foot">
+          <span>بإرسال الطلب أنت توافق على معالجة بياناتك لغرض متابعة الشكوى وفق أحكام حماية البيانات.</span>
+          <div class="panel-foot-actions">
+            <button type="button" class="btn-outline" data-nav="home">إلغاء</button>
+            <button type="submit" class="btn-primary" id="submit-btn">إرسال الشكوى</button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <div class="receipt" id="receipt" hidden>
+      <div class="receipt-check">✓</div>
+      <h1>تم استلام شكواك</h1>
+      <p>تم تصنيف الشكوى وتحويلها إلى الدائرة المختصة. ستصلك التحديثات عبر الرسائل القصيرة.</p>
+      <div class="receipt-ref">
+        <div class="receipt-ref-label">الرقم المرجعي</div>
+        <div class="receipt-ref-value" id="receipt-ref"></div>
+      </div>
+      <div class="receipt-dupes" id="receipt-dupes" hidden></div>
+      <div class="receipt-grid">
+        <div class="receipt-cell">
+          <div class="receipt-cell-label" id="receipt-class-label">التصنيف الآلي</div>
+          <div class="receipt-cell-value" id="receipt-type"></div>
+        </div>
+        <div class="receipt-cell">
+          <div class="receipt-cell-label">الدائرة المسؤولة</div>
+          <div class="receipt-cell-value" id="receipt-dept"></div>
+        </div>
+      </div>
+      <div class="receipt-actions">
+        <button class="btn-primary" data-nav="home">العودة للرئيسية</button>
+        <button class="btn-outline" id="receipt-again">تقديم شكوى أخرى</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ============================================================= admin -->
+<main id="screen-admin" class="admin-main" hidden>
+  <aside class="admin-side">
+    <div class="admin-side-head">إدارة الشكاوى</div>
+    <div class="admin-side-item is-active">لوحة المؤشرات</div>
+    <div class="admin-side-item">الشكاوى الواردة</div>
+    <div class="admin-side-item">المُحوّلة إليّ</div>
+    <div class="admin-side-item">الدوائر</div>
+    <div class="admin-side-item">التقارير</div>
+    <div class="admin-side-item">قواعد التصنيف</div>
+    <div class="admin-side-user">م. سامر الحلبي<br><span>مدير دائرة الشكاوى</span></div>
+  </aside>
+
+  <div class="admin-body">
+    <div class="admin-head">
+      <div>
+        <h1>لوحة إدارة الشكاوى</h1>
+        <span class="admin-head-sub" id="admin-updated"></span>
+      </div>
+      <div class="admin-head-actions">
+        <button class="btn-sm-outline" id="export-csv">تصدير CSV</button>
+        <button class="btn-sm-primary" data-nav="submit">إضافة شكوى يدوياً</button>
+      </div>
+    </div>
+
+    <div class="kpi-grid" id="kpi-grid"></div>
+
+    <div class="chart-row">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">الشكاوى حسب التصنيف</span>
+          <span class="card-note">آخر ٣٠ يوماً</span>
+        </div>
+        <div class="bars" id="type-bars"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="margin-bottom:16px">توزّع الحالات</div>
+        <div class="donut-wrap">
+          <div class="donut" id="donut">
+            <div class="donut-hole">
+              <span class="donut-count" id="donut-count">٠</span>
+              <span class="donut-caption">شكوى نشطة</span>
+            </div>
+          </div>
+          <div class="legend" id="donut-legend"></div>
+        </div>
+      </div>
+
+      <div class="card card-column">
+        <div class="card-head">
+          <span class="card-title">الشكاوى الواردة يومياً</span>
+          <span class="card-note">١٤ يوماً</span>
+        </div>
+        <div class="trend" id="trend"></div>
+        <div class="trend-axis" id="trend-axis"></div>
+        <div class="sla-block">
+          <span class="sla-title">الالتزام بالمهلة</span>
+          <span class="sla-bar" id="sla-bar"></span>
+          <div class="sla-legend" id="sla-legend"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="work-row">
+      <div class="table-card">
+        <div class="table-tools">
+          <input id="admin-search" placeholder="بحث برقم مرجعي أو كلمة" autocomplete="off">
+          <div id="filter-chips" style="display:contents"></div>
+        </div>
+        <div class="tbl-head">
+          <span>الرقم المرجعي</span><span>الموضوع</span><span>الدائرة</span><span>الأولوية</span><span>الحالة</span>
+        </div>
+        <div id="tbl-body"></div>
+        <div class="tbl-foot">
+          <span id="tbl-count"></span>
+          <div class="pager" id="pager"></div>
+        </div>
+      </div>
+
+      <div class="detail-card" id="detail-card"></div>
+    </div>
+  </div>
+</main>
+
+<footer class="sitefoot">
+  <div class="sitefoot-brand">
+    <img src="assets/logo-icon-gold.svg" alt="">
+    <span>وزارة الاتصالات وتقانة المعلومات — الجمهورية العربية السورية</span>
+  </div>
+  <div class="sitefoot-links">
+    <span>سياسة الخصوصية</span><span>الأسئلة الشائعة</span><span>اتصل بنا · ١٥٥٦</span>
+  </div>
+</footer>
+
+<script src="js/api.js"></script>
+<script src="js/format.js"></script>
+<script src="js/home.js"></script>
+<script src="js/submit.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
