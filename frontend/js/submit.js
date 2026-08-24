@@ -6,7 +6,6 @@ const Submit = (() => {
   const MAX_FILES = 5;
   const MAX_BYTES = 5 * 1024 * 1024; // matches the "٥ ميغابايت" the form promises
 
-  let priority = 'medium';
   let files = [];
 
   /* ------------------------------------------------------------- render */
@@ -18,21 +17,6 @@ const Submit = (() => {
     const gov = clear(document.getElementById('f-gov'));
     meta.governorates.forEach((g) => gov.append(el('option', { value: g, text: g })));
 
-    const row = clear(document.getElementById('pri-row'));
-    meta.priorities.forEach((p) =>
-      row.append(el('button', {
-        type: 'button',
-        class: `chip${p.value === priority ? ' is-active' : ''}`,
-        dataset: { priority: p.value },
-        text: p.ar,
-        onclick: () => setPriority(p.value),
-      })));
-  }
-
-  function setPriority(value) {
-    priority = value;
-    document.querySelectorAll('#pri-row .chip').forEach((chip) =>
-      chip.classList.toggle('is-active', chip.dataset.priority === value));
   }
 
   function renderFiles() {
@@ -116,7 +100,7 @@ const Submit = (() => {
       title: document.getElementById('f-title').value,
       description: document.getElementById('f-desc').value,
       type: document.getElementById('f-type').value,
-      priority,
+      // No priority: the model decides it from the description.
     };
   }
 
@@ -196,7 +180,6 @@ const Submit = (() => {
     document.getElementById('complaint-form').reset();
     files = [];
     renderFiles();
-    setPriority('medium');
     document.getElementById('desc-count').textContent = ar(0);
     Object.keys(RULES).forEach((field) => showError(field, ''));
     document.getElementById('receipt').hidden = true;

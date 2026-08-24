@@ -135,6 +135,7 @@ const App = (() => {
     Home.init();
     Submit.init();
     Admin.init();
+    Chat.init();
 
     await refreshDashboard();
     go(location.hash.slice(1) || 'home');

@@ -14,7 +14,7 @@ and [challenge-03-arabic.md](challenge-03-arabic.md).
 
 ## Running it
 
-Requires Python 3.11+.
+Requires Python 3.11+, and [Ollama](https://ollama.com) for the AI features.
 
 ```bash
 pip install -r backend/requirements.txt
@@ -35,6 +35,25 @@ cd backend && python seed.py --reset
 
 Interactive API documentation is at <http://127.0.0.1:8000/docs>.
 
+### AI features
+
+The assistant and AI priority run on a local Ollama. Pull the two models once:
+
+```bash
+ollama pull gemma3:4b && ollama pull nomic-embed-text
+```
+
+Then build the chatbot's index from the knowledge base:
+
+```bash
+cd backend && python ingest.py --reset
+```
+
+Re-run that whenever `docs/knowledge-base.md` changes. Everything works with
+Ollama stopped — complaints are still accepted, classified and routed, the
+priority falls back to the rule-based classifier, and the chat launcher simply
+does not appear.
+
 ## Tests
 
 ```bash
@@ -45,8 +64,12 @@ cd backend && python test_api.py
 cd backend && python test_live.py
 ```
 
-99 in-process checks over the whole API, plus 10 checks that run against a real
-uvicorn server to cover concurrency.
+```bash
+cd backend && python test_retrieval.py
+```
+
+107 in-process checks over the whole API, 10 against a real uvicorn server for
+concurrency, and a 34-question retrieval evaluation in both languages.
 
 ---
 
@@ -91,6 +114,7 @@ frontend/                 static, no build step
   js/home.js              stats strip, category cards, tracking
   js/submit.js            form, validation, attachments, receipt
   js/admin.js             KPIs, charts, queue table, filters, focus mode
+  js/chat.js              the citizen assistant panel
   js/app.js               routing and shared label lookups
 
 backend/                  FastAPI + SQLite
@@ -101,6 +125,12 @@ backend/                  FastAPI + SQLite
   app/services.py         business rules
   app/schemas.py          request/response models
   app/main.py             routes
+  app/tasks.py            single worker for model calls
+  app/ai/                 Ollama client, chunker, hybrid store, RAG, priority
+  ingest.py               builds the vector index
+
+docs/
+  knowledge-base.md       what the chatbot is allowed to answer from
 ```
 
 The frontend is plain HTML, CSS and JavaScript — no framework and no bundler.
@@ -123,7 +153,7 @@ rules, the SLA model and the concurrency notes.
 | وصف المشكلة | `description`, 600-character limit enforced both sides |
 | نوع الشكوى | Twelve types, auto-classified or chosen by the citizen |
 | المرفقات | Up to 5 files, drag-and-drop, stored under random names |
-| الأولوية | Three levels, suggested from urgency wording, escalated automatically when a complaint waits too long |
+| الأولوية | Three levels, assigned by the AI from the description (never by the citizen), escalated automatically when a complaint waits too long |
 | حالة الشكوى | Five statuses with server-enforced transitions |
 | سجل التحديثات | Append-only `events` table, rendered as the timeline |
 | رقم مرجعي | Sequential `MOCT-2026-014287`, used by public tracking |

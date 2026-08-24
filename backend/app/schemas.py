@@ -18,9 +18,12 @@ class ComplaintCreate(BaseModel):
     title: str = Field(min_length=3, max_length=200)
     # 600 characters is the limit the submit form counts down from.
     description: str = Field(min_length=10, max_length=600)
-    # Left unset, these are inferred by the triage engine.
+    # Left unset, the type is inferred by the triage engine.
     type: ComplaintType | None = None
-    priority: Priority | None = None
+    # NOTE: there is deliberately no `priority` field. Priority is decided
+    # by the AI triage step from the description, never by the person
+    # filing — self-assessed urgency is not comparable between citizens.
+    # Staff can still change it afterwards through ComplaintUpdate.
 
     @field_validator("citizen_phone")
     @classmethod
@@ -174,3 +177,39 @@ class Stats(BaseModel):
     status_breakdown: list[dict]
     type_breakdown: list[dict]
     recent_days: list[dict]
+
+
+class ChatMessage(BaseModel):
+    """One turn of conversation sent back with a follow-up question."""
+
+    role: str = Field(pattern="^(user|assistant)$")
+    content: str = Field(max_length=2000)
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=1000)
+    # Only the last few turns are used; the rest is dropped server-side.
+    history: list[ChatMessage] = Field(default_factory=list, max_length=20)
+
+
+class ChatSource(BaseModel):
+    title: str
+    lang: str
+
+
+class ChatReply(BaseModel):
+    answer: str
+    sources: list[ChatSource] = []
+    # Whether the answer came from retrieved documentation rather than a
+    # fallback message. The UI uses this to decide whether to show sources.
+    grounded: bool
+    # False when the assistant itself is down, so the UI can say so plainly.
+    available: bool
+
+
+class AIHealth(BaseModel):
+    enabled: bool
+    available: bool
+    llm_model: str
+    embed_model: str
+    indexed_chunks: int

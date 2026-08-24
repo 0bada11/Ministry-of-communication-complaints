@@ -11,10 +11,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import repository as repo, services
+from . import repository as repo, services, tasks
+from .ai import config as ai_config, ollama, rag
+from .ai.store import store as knowledge_store
 from .db import UPLOAD_DIR, db_dependency, get_db, init_db, write_db_dependency
 from .domain import ComplaintType, Priority, Status
 from .schemas import (
+    AIHealth,
+    ChatReply,
+    ChatRequest,
     ComplaintCreate,
     ComplaintCreated,
     ComplaintOut,
@@ -63,12 +68,14 @@ async def _escalation_loop() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    tasks.start()
     # Catch anything that was already overdue when the server started, rather
     # than waiting a full interval before the first sweep.
     await asyncio.to_thread(_run_escalation_sweep)
     task = asyncio.create_task(_escalation_loop())
     yield
     task.cancel()
+    tasks.stop()
 
 
 app = FastAPI(
@@ -127,6 +134,10 @@ def create_complaint(
 ) -> ComplaintCreated:
     """Submit a complaint as JSON (no attachments)."""
     result = services.create_complaint(conn, payload, files=None)
+    # The model reviews the priority on a dedicated worker, so the citizen
+    # gets their reference number without waiting on it and the backlog can
+    # never occupy a request thread.
+    tasks.submit(services.refine_priority, result["complaint"]["id"])
     return ComplaintCreated(
         complaint=services.complaint_view(conn, result["complaint"]),
         auto_classified=result["auto_classified"],
@@ -146,7 +157,6 @@ def create_complaint_with_files(
     citizen_email: str | None = Form(None),
     location_detail: str | None = Form(None),
     type: str | None = Form(None),
-    priority: str | None = Form(None),
     files: list[UploadFile] = File(default=[]),
     conn: sqlite3.Connection = WRITE_DB,
 ) -> ComplaintCreated:
@@ -160,9 +170,9 @@ def create_complaint_with_files(
         title=title,
         description=description,
         type=type or None,
-        priority=priority or None,
     )
     result = services.create_complaint(conn, payload, files=files)
+    tasks.submit(services.refine_priority, result["complaint"]["id"])
     return ComplaintCreated(
         complaint=services.complaint_view(conn, result["complaint"]),
         auto_classified=result["auto_classified"],
@@ -325,6 +335,37 @@ def track(reference_no: str, conn: sqlite3.Connection = DB) -> TrackingOut:
 def dashboard_stats(days: int = 14, conn: sqlite3.Connection = DB) -> Stats:
     """Counts by status, type, priority and department, plus a daily trend."""
     return repo.stats(conn, recent_days=max(1, min(days, 90)))
+
+
+# ---------------------------------------------------------------------------
+# assistant
+# ---------------------------------------------------------------------------
+
+@app.get("/api/ai/health", response_model=AIHealth, tags=["assistant"])
+def ai_health() -> AIHealth:
+    """Whether the assistant can answer, and what it is running on."""
+    return AIHealth(
+        enabled=ai_config.AI_ENABLED,
+        available=ollama.available(),
+        llm_model=ai_config.LLM_MODEL,
+        embed_model=ai_config.EMBED_MODEL,
+        indexed_chunks=knowledge_store.count(),
+    )
+
+
+@app.post("/api/chat", response_model=ChatReply, tags=["assistant"])
+def chat(payload: ChatRequest) -> ChatReply:
+    """Answer a citizen's question from the platform's own documentation.
+
+    Grounded in the indexed knowledge base: when retrieval finds nothing
+    relevant the assistant says so and points at the service centre rather
+    than inventing a policy.
+    """
+    result = rag.answer(
+        payload.message,
+        [{"role": m.role, "content": m.content} for m in payload.history],
+    )
+    return ChatReply(**result)
 
 
 # ---------------------------------------------------------------------------

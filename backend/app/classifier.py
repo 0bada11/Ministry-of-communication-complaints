@@ -136,12 +136,26 @@ def classify_type(text: str) -> tuple[ComplaintType, float]:
     return best, round(scores[best] / total, 2)
 
 
-def suggest_priority(text: str, ctype: ComplaintType) -> Priority:
-    """First matching keyword tier wins; otherwise fall back on the type."""
+def keyword_priority(text: str) -> tuple[Priority, str] | None:
+    """The priority the wording alone demands, and the phrase that demanded it.
+
+    Separate from `suggest_priority` because an explicit emergency word is a far
+    stronger signal than the type fallback, and callers need to tell the two
+    apart — the AI priority path uses this as a floor it may not go below.
+    """
     haystack = normalize(text)
     for priority, keywords in PRIORITY_KEYWORDS:
-        if any(normalize(kw) in haystack for kw in keywords):
-            return priority
+        for keyword in keywords:
+            if normalize(keyword) in haystack:
+                return priority, keyword
+    return None
+
+
+def suggest_priority(text: str, ctype: ComplaintType) -> Priority:
+    """First matching keyword tier wins; otherwise fall back on the type."""
+    matched = keyword_priority(text)
+    if matched:
+        return matched[0]
     if ctype is ComplaintType.INQUIRY:
         return Priority.LOW
     if ctype in (ComplaintType.INTERNET_OUTAGE, ComplaintType.CYBERSECURITY):

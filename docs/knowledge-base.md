@@ -115,7 +115,7 @@ Part One is in Arabic, Part Two in English; both carry the same information.
 
 ### المرحلة ٣ — تحديد الأولوية والتوجيه
 
-يحدّد النظام أولوية الشكوى (منخفضة / متوسطة / عالية) من صياغة الوصف، ثم يوجّهها
+يحدّد النظام أولوية الشكوى (منخفضة / متوسطة / عالية) آلياً من صياغة الوصف — لا يختارها المواطن — ثم يوجّهها
 **آلياً وفوراً** إلى الجهة المسؤولة عن ذلك التصنيف. لا يوجد انتظار لموظف كي
 يقرر الجهة.
 
@@ -139,7 +139,6 @@ Part One is in Arabic, Part Two in English; both carry the same information.
 | العنوان التفصيلي | لا | الشارع، رقم البناء، الطابق، أقرب معلم — حتى ٣٠٠ حرف |
 | عنوان مختصر | نعم | من ٣ إلى ٢٠٠ حرف |
 | وصف المشكلة | نعم | من ١٠ إلى ٦٠٠ حرف |
-| درجة الأهمية | لا | إن لم تُحدَّد يستنتجها النظام |
 | المرفقات | لا | حتى ٥ ملفات |
 | الاسم الكامل | نعم | حرفان على الأقل |
 | رقم الموبايل | نعم | ٦ خانات على الأقل |
@@ -262,8 +261,11 @@ Part One is in Arabic, Part Two in English; both carry the same information.
 
 ### كيف تُحدَّد الأولوية
 
-إذا اخترت درجة أهمية في النموذج، **فاختيارك هو المعتمد**. وإن لم تختر، يستنتجها
-النظام من صياغة الوصف بالترتيب التالي:
+**لا يختار المواطن درجة الأهمية.** يقرأ النظام وصف المشكلة ويحدّدها آلياً، حتى
+تُقاس جميع الشكاوى بالمعيار نفسه ولا تتقدّم شكوى على أخرى لأن مقدّمها وصفها
+بأنها عاجلة. تستطيع الدائرة المختصة تعديل الأولوية بعد المراجعة.
+
+يُحدَّد المستوى من صياغة الوصف بالترتيب التالي:
 
 **أولاً — عبارات ترفع الأولوية إلى «عالية»:**
 انقطاع كامل · توقف تام · طارئ · عاجل · خطر · مستشفى · إسعاف · طوارئ · كارثة ·
@@ -476,6 +478,12 @@ Part One is in Arabic, Part Two in English; both carry the same information.
 **س: هل يمكنني تقديم شكوى بالإنجليزية؟**
 ج: نعم. النظام يصنّف النصوص العربية والإنجليزية.
 
+**س: لماذا لا أستطيع اختيار درجة الأهمية بنفسي؟**
+ج: لتُقاس كل الشكاوى بالمعيار نفسه. لو اختار كل مواطن أولوية شكواه لفقد الترتيب معناه. النظام يقرأ الوصف ويحدّد الأولوية، وترتفع تلقائياً إن تأخرت المعالجة، ويمكن للدائرة المختصة تعديلها.
+
+**س: ما هو المساعد الذكي في الموقع؟**
+ج: مساعد آلي يجيب عن الأسئلة المتعلقة بالمنصة اعتماداً على هذا الدليل الرسمي فقط. لا يستطيع الاطلاع على شكوى بعينها ولا تعديلها؛ لمتابعة شكوى استخدم مربع «تتبع شكوى» بالرقم المرجعي.
+
 **س: ما رقم التواصل؟**
 ج: مركز خدمة المواطن — **١٥٥٦**.
 
@@ -583,8 +591,9 @@ for the reviewing officer rather than silently overriding the citizen's choice.
 
 ### Stage 3 — Priority and routing
 
-The system determines the priority (Low / Medium / High) from the wording of the
-description, then routes the complaint **automatically and immediately** to the
+The system determines the priority (Low / Medium / High) automatically from the
+wording of the description — the citizen does not choose it — then routes the
+complaint **automatically and immediately** to the
 entity responsible for that category. No one has to decide the destination
 first.
 
@@ -609,7 +618,6 @@ timestamp and the party that made it.
 | Detailed address | No | Street, building, floor, nearest landmark — up to 300 characters |
 | Short title | Yes | 3 to 200 characters |
 | Problem description | Yes | 10 to 600 characters |
-| Priority | No | Inferred by the system if left unset |
 | Attachments | No | Up to 5 files |
 | Full name | Yes | At least 2 characters |
 | Mobile number | Yes | At least 6 digits |
@@ -742,8 +750,12 @@ complaint is marked **"approaching deadline"**, and past 100% it is marked
 
 ### How priority is decided
 
-If you select a priority on the form, **your selection is what counts**. If you
-do not, the system infers it from the wording, in this order:
+**The citizen does not choose the priority.** The system reads the description
+and decides, so that every complaint is measured against the same standard and
+none jumps the queue because the person filing called it urgent. The
+responsible entity can adjust it after review.
+
+The level is inferred from the wording, in this order:
 
 **First — phrases that raise priority to High:**
 complete outage · total stoppage · urgent · emergency · critical · danger ·
@@ -969,6 +981,12 @@ A: "Closed" is final. File a new complaint quoting the previous reference number
 
 **Q: Can I file in English?**
 A: Yes. The system classifies both Arabic and English text.
+
+**Q: Why can't I choose the priority myself?**
+A: So every complaint is measured by the same standard. If each citizen set their own priority the ordering would mean nothing. The system reads the description and decides, the priority rises automatically if handling is delayed, and the responsible entity can adjust it.
+
+**Q: What is the assistant on the site?**
+A: An automated assistant that answers questions about the platform using this official documentation only. It cannot look up or change an individual complaint; to follow one, use the tracking box with your reference number.
 
 **Q: What is the contact number?**
 A: Citizen Service Centre — **1556**.

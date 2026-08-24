@@ -12,6 +12,7 @@ from pathlib import Path
 from fastapi import HTTPException, UploadFile
 
 from . import classifier, repository as repo
+from .ai import priority as ai_priority
 from .db import UPLOAD_DIR
 from .domain import (
     ALLOWED_TRANSITIONS,
@@ -127,10 +128,17 @@ def create_complaint(conn: sqlite3.Connection, payload, files: list[UploadFile] 
     """Triage, persist, route and log a new complaint."""
     triaged = classifier.triage(payload.title, payload.description)
 
-    # An explicit choice from the citizen always beats the inferred one.
+    # The citizen's category choice still wins; the priority is not theirs to
+    # set. Urgency claimed by the person filing is not comparable between
+    # citizens, so the priority is assigned for them.
+    #
+    # The deterministic rules assign it *here*, in microseconds, because the
+    # platform promises an immediate reference number and a model call costs
+    # seconds — nine of them under load. The model reconsiders the decision
+    # straight afterwards in `refine_priority`, off the request path.
     ctype = payload.type or triaged["type"]
-    priority = payload.priority or triaged["priority"]
     auto_classified = payload.type is None
+    priority = triaged["priority"]
     department = repo.department_by_code(conn, classifier.route(ctype))
 
     reference_no = repo.make_reference(conn)
@@ -179,6 +187,15 @@ def create_complaint(conn: sqlite3.Connection, payload, files: list[UploadFile] 
             note=f"يقترح النظام تصنيفاً مختلفاً (ثقة {triaged['confidence']:.0%})",
             actor="system",
         )
+    repo.add_event(
+        conn,
+        complaint_id,
+        "priority_set",
+        field="priority",
+        new_value=priority.value,
+        note=("تحديد أولي بقواعد التصنيف — بانتظار مراجعة المساعد الذكي"),
+        actor="system",
+    )
     if department:
         repo.add_event(
             conn,
@@ -202,6 +219,63 @@ def create_complaint(conn: sqlite3.Connection, payload, files: list[UploadFile] 
             exclude_id=complaint_id,
         ),
     }
+
+
+def refine_priority(complaint_id: int) -> str | None:
+    """Let the model reconsider the priority the rules assigned at intake.
+
+    Runs as a background task so the citizen's submission is never waiting on a
+    model: they already have their reference number by the time this starts. If
+    the model agrees with the rules, or is unreachable, nothing changes and the
+    rule-based priority simply stands.
+
+    Opens its own connection rather than borrowing the request's, which has
+    been committed and closed by the time background tasks run.
+    """
+    from .db import get_db  # local import avoids a cycle at module load
+
+    # Three deliberate phases. The model call sits *between* two short database
+    # transactions and never inside one: SQLite allows a single writer, so
+    # holding the write lock across a multi-second network call blocks every
+    # incoming submission until it times out. Read, think, then write.
+
+    # 1. Read what the model needs, releasing the connection immediately.
+    with get_db() as conn:
+        complaint = repo.get_complaint(conn, complaint_id)
+    if not complaint:
+        return None
+    # A complaint already dealt with should not have its priority churned.
+    if complaint["status"] in (Status.RESOLVED.value, Status.CLOSED.value):
+        return None
+
+    # 2. Call the model with no database connection open at all.
+    graded = ai_priority.decide(
+        complaint["title"],
+        complaint["description"],
+        ComplaintType(complaint["type"]),
+    )
+    if graded["source"] == "rules":
+        return None  # the model had nothing to add
+    if graded["priority"].value == complaint["priority"]:
+        return None  # it agreed; no event worth writing
+
+    # 3. Apply the verdict in a transaction that lasts microseconds. Re-read
+    #    first: an officer may have set the priority by hand while the model
+    #    was thinking, and a human decision outranks this one.
+    with get_db(write=True) as conn:
+        current = repo.get_complaint(conn, complaint_id)
+        if not current or current["priority"] != complaint["priority"]:
+            return None
+        if current["status"] in (Status.RESOLVED.value, Status.CLOSED.value):
+            return None
+
+        repo.update_complaint(conn, complaint_id, {"priority": graded["priority"].value})
+        repo.add_event(
+            conn, complaint_id, "priority_changed", field="priority",
+            old_value=current["priority"], new_value=graded["priority"].value,
+            note=ai_priority.describe(graded), actor="system",
+        )
+    return graded["priority"].value
 
 
 # ---------------------------------------------------------------------------

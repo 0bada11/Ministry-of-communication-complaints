@@ -162,8 +162,10 @@
 
           <div class="pri-block">
             <span class="pri-label">درجة الأهمية</span>
-            <div class="pri-row" id="pri-row"></div>
-            <span class="pri-note">تُراجع الأولوية من قبل الدائرة المختصة بعد التصنيف.</span>
+            <div class="pri-auto">
+              <span class="pri-auto-badge">تلقائي</span>
+              <span class="pri-auto-text">يحدّد النظام درجة الأهمية آلياً من وصف المشكلة، لضمان معاملة جميع الشكاوى بالمعيار نفسه. يمكن للدائرة المختصة تعديلها بعد المراجعة.</span>
+            </div>
           </div>
 
           <div class="files-block">
@@ -354,11 +356,43 @@
   </div>
 </footer>
 
+<!-- ============================================ assistant (chat widget) -->
+<button type="button" class="chat-launcher" id="chat-launcher"
+        aria-label="المساعد الذكي" aria-expanded="false" hidden>
+  <span class="chat-launcher-dot" aria-hidden="true"></span>
+  <span>المساعد الذكي</span>
+</button>
+
+<div class="chat-panel" id="chat-panel" role="dialog" aria-modal="false"
+     aria-labelledby="chat-title" hidden>
+  <div class="chat-head">
+    <div class="chat-head-titles">
+      <span class="chat-title" id="chat-title">المساعد الذكي</span>
+      <span class="chat-sub" id="chat-sub">يجيب من دليل المنصة الرسمي</span>
+    </div>
+    <button type="button" class="chat-close" id="chat-close" aria-label="إغلاق">✕</button>
+  </div>
+
+  <div class="chat-log" id="chat-log" role="log" aria-live="polite"></div>
+
+  <div class="chat-suggestions" id="chat-suggestions"></div>
+
+  <form class="chat-form" id="chat-form">
+    <input id="chat-input" autocomplete="off" maxlength="1000"
+           placeholder="اكتب سؤالك بالعربية أو الإنجليزية…" aria-label="سؤالك">
+    <button type="submit" id="chat-send" aria-label="إرسال">إرسال</button>
+  </form>
+  <div class="chat-disclaimer">
+    إجابات آلية من دليل المنصة. للحالات الخاصة تواصل مع مركز خدمة المواطن ١٥٥٦.
+  </div>
+</div>
+
 <script src="js/motion.js"></script>
 <script src="js/api.js"></script>
 <script src="js/format.js"></script>
 <script src="js/home.js"></script>
 <script src="js/submit.js"></script>
+<script src="js/chat.js"></script>
 <script src="js/admin.js"></script>
 <script src="js/app.js"></script>
 </body>

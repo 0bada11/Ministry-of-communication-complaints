@@ -82,7 +82,7 @@ def main() -> int:
         check("reference number issued",
               complaint["reference_no"].startswith("MOCT-"), complaint["reference_no"])
         check("auto_classified flag set", body["auto_classified"] is True)
-        check("creation logged 3 events", len(complaint["events"]) == 3,
+        check("creation logged 4 events", len(complaint["events"]) == 4,
               str([e["action"] for e in complaint["events"]]))
 
         billing = client.post("/api/complaints", json={
@@ -126,10 +126,21 @@ def main() -> int:
         manual = client.post("/api/complaints", json={
             "citizen_name": "خالد العمر", "citizen_phone": "0911111111", "governorate": "درعا",
             "title": "بطء في الإنترنت", "description": "الإنترنت بطيء جداً ولا يعمل بشكل جيد.",
-            "type": "billing", "priority": "high",
+            "type": "billing",
         }).json()
         check("explicit type respected", manual["complaint"]["type"] == "billing")
         check("auto_classified false", manual["auto_classified"] is False)
+        check("a citizen-supplied priority is ignored, not honoured",
+              client.post("/api/complaints", json={
+                  "citizen_name": "محاول التصعيد", "citizen_phone": "0900011122",
+                  "governorate": "دمشق", "title": "سؤال بسيط عن مواعيد الدوام",
+                  "description": "أرغب بمعرفة مواعيد الدوام الرسمي في مكاتبكم.",
+                  "priority": "high",
+              }).json()["complaint"]["priority"] != "high")
+        check("every complaint records how its priority was decided", any(
+            e["action"] == "priority_set" and e["actor"] == "system"
+            for e in manual["complaint"]["events"]),
+            str([e["action"] for e in manual["complaint"]["events"]]))
 
         print("\n[duplicate detection]")
         dup = client.post("/api/complaints", json={
@@ -291,7 +302,7 @@ def main() -> int:
 
         print("\n[listing, filtering, search]")
         all_items = client.get("/api/complaints?per_page=100").json()
-        check("list returns everything", all_items["total"] == 11, str(all_items["total"]))
+        check("list returns everything", all_items["total"] == 12, str(all_items["total"]))
         check("summary carries attachment_count",
               any(i["attachment_count"] == 1 for i in all_items["items"]))
         check("filter by status",
@@ -342,7 +353,7 @@ def main() -> int:
 
         print("\n[dashboard statistics]")
         stats = client.get("/api/stats").json()
-        check("total matches", stats["total"] == 11, str(stats["total"]))
+        check("total matches", stats["total"] == 12, str(stats["total"]))
         check("open + resolved == total",
               stats["open_count"] + stats["resolved_count"] == stats["total"],
               f"{stats['open_count']}+{stats['resolved_count']}")
@@ -363,6 +374,51 @@ def main() -> int:
         check("kpi fields present",
               all(k in stats for k in ("new_today", "overdue_count",
                                        "resolved_this_week", "in_progress_count")))
+
+        print("\n[AI priority review]")
+        import time as _time
+        from app.ai import ollama as _ollama
+
+        graded = client.post("/api/complaints", json={
+            "citizen_name": "مواطن المراجعة", "citizen_phone": "0912121212",
+            "governorate": "دمشق", "title": "تذبذب في الخدمة",
+            "description": "الخدمة تتذبذب في المساء وتؤثر على العمل من المنزل.",
+        }).json()["complaint"]
+        check("intake assigns a priority without waiting for the model",
+              graded["priority"] in ("low", "medium", "high"))
+        check("intake records the interim decision", any(
+            e["action"] == "priority_set" and "بانتظار" in (e["note"] or "")
+            for e in graded["events"]))
+
+        # Submission must not be gated on the model. A model call costs seconds;
+        # this asserts the citizen never pays for one.
+        started = _time.perf_counter()
+        client.post("/api/complaints", json={
+            "citizen_name": "قياس الزمن", "citizen_phone": "0913131313",
+            "governorate": "حلب", "title": "انقطاع الخدمة في الحي",
+            "description": "انقطاع كامل للإنترنت عن الحي منذ ساعات دون إشعار مسبق.",
+        })
+        elapsed = _time.perf_counter() - started
+        check("submission stays off the model's critical path (<1.5s)",
+              elapsed < 1.5, f"took {elapsed:.2f}s")
+
+        if _ollama.available():
+            # Called directly rather than racing the background worker.
+            before = client.get(f"/api/complaints/{graded['id']}").json()["priority"]
+            services.refine_priority(graded["id"])
+            after = client.get(f"/api/complaints/{graded['id']}").json()
+            check("review leaves a valid priority in place",
+                  after["priority"] in ("low", "medium", "high"))
+            if after["priority"] != before:
+                check("a changed priority is logged as a system decision", any(
+                    e["action"] == "priority_changed" and e["actor"] == "system"
+                    for e in after["events"]))
+            else:
+                check("model agreeing with the rules writes no noise event",
+                      not any(e["action"] == "priority_changed"
+                              for e in after["events"]))
+            check("reviewing twice changes nothing the second time",
+                  services.refine_priority(graded["id"]) is None)
 
         print("\n[automatic priority escalation]")
         stale_low = client.post("/api/complaints", json={

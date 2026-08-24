@@ -2,3 +2,9 @@ fastapi==0.115.6
 uvicorn[standard]==0.34.0
 pydantic[email]==2.10.4
 python-multipart==0.0.20
+
+# AI features. httpx talks to Ollama; chromadb stores the knowledge-base
+# vectors. Both are optional at runtime — the platform starts and accepts
+# complaints with Ollama stopped, falling back to the rule-based classifier.
+httpx==0.28.1
+chromadb==0.6.3

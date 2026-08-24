@@ -62,6 +62,12 @@ const API = (() => {
     get: (id) => request(`/api/complaints/${id}`),
     track: (reference) => request(`/api/track/${encodeURIComponent(reference)}`),
     csvUrl: (params) => `${BASE}/api/complaints.csv${query(params)}`,
+    aiHealth: () => request('/api/ai/health'),
+    chat: (message, history = []) => request('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, history }),
+    }),
 
     create: (body, files) => {
       // Attachments force multipart; without them JSON keeps validation richer.

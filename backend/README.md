@@ -31,10 +31,12 @@ python test_api.py
 python test_live.py
 ```
 
-`test_api.py` runs 99 checks in-process against a throwaway database.
+`test_api.py` runs 107 checks in-process against a throwaway database.
 `test_live.py` starts a real uvicorn server and fires overlapping requests at
 it — in-process tests serialise everything and cannot catch threadpool or
 SQLite locking problems.
+`test_retrieval.py` scores the retriever against a 34-question set in both
+languages and fails if hybrid search stops beating either half on its own.
 
 The database and uploads are created under `backend/data/` (override with the
 `MOCT_DATA_DIR` environment variable).
@@ -50,6 +52,13 @@ The database and uploads are created under `backend/data/` (override with the
 | `app/services.py` | Business rules, attachments, CSV, serialization |
 | `app/schemas.py` | Request/response models |
 | `app/main.py` | Routes, and the static mount that serves the frontend |
+| `app/tasks.py` | The single background worker model calls run on |
+| `app/ai/config.py` | Models, endpoints and thresholds, all env-overridable |
+| `app/ai/ollama.py` | Ollama client; returns None rather than raising |
+| `app/ai/chunker.py` | Splits the knowledge base into retrievable chunks |
+| `app/ai/store.py` | Chroma vectors + BM25, fused with RRF |
+| `app/ai/rag.py` | Grounded answering for the chatbot |
+| `app/ai/priority.py` | AI priority with an emergency floor and a fallback |
 
 ## Data model
 
@@ -158,6 +167,104 @@ and a note saying how long the complaint had waited, so it appears in the
 update log exactly like a human-made change. The sweep is idempotent — running
 it twice in a row changes nothing the second time.
 
+## AI features
+
+Two features run on a local Ollama. Both degrade rather than break: with Ollama
+stopped the platform still accepts, classifies, routes and tracks complaints,
+and the assistant says it is unavailable instead of guessing.
+
+```bash
+ollama serve
+```
+
+```bash
+python ingest.py --reset
+```
+
+`ingest.py` builds the vector index from `docs/knowledge-base.md`. **Re-run it
+whenever that file changes** — the chatbot answers only from what is indexed,
+so a stale index means a chatbot confidently describing a system that no longer
+exists.
+
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `MOCT_OLLAMA_URL` | `http://127.0.0.1:11434` | Where Ollama listens |
+| `MOCT_LLM_MODEL` | `gemma3:4b` | Answers questions, judges priority |
+| `MOCT_EMBED_MODEL` | `nomic-embed-text` | Builds the vectors |
+| `MOCT_AI_ENABLED` | `1` | Set to `0` to disable every AI path |
+
+### 1. Citizen assistant (RAG)
+
+`docs/knowledge-base.md` is chunked by section — the FAQ one question per chunk,
+tables never split — embedded into Chroma, and indexed for BM25 in the same
+pass. A question is answered only from retrieved passages; when retrieval finds
+nothing the assistant refuses and points at 1556 rather than inventing a
+deadline.
+
+**Retrieval is hybrid because measurement said it had to be.** The embedding
+model cannot discriminate Arabic on this corpus — asked "how long does a
+complaint take", it scored an irrelevant Arabic passage (0.835) *above* the one
+containing the answer (0.810). It is reading "these are both Arabic policy
+sentences", not meaning. BM25 over normalized Arabic tokens does the real work;
+the vectors add recall for paraphrases sharing no words with the document.
+
+Fusion is Reciprocal Rank Fusion, which consumes *ranks*: cosine similarities
+and BM25 scores are on incomparable scales, and a score-based blend would be
+poisoned by the badly-calibrated half. Measured over 34 questions, 17 per
+language:
+
+| Retriever | hit@1 | hit@3 |
+| --- | --- | --- |
+| Sparse only (BM25) | 61.8% | 100% |
+| Dense only (vectors) | 55.9% | 85.3% |
+| **Hybrid (RRF)** | **73.5%** | **100%** |
+
+### 2. AI-assigned priority
+
+The citizen can no longer choose a priority — `ComplaintCreate` has no such
+field, and one sent anyway is ignored. Self-assessed urgency is not comparable
+between citizens, so the model reads the description and decides.
+
+It runs in two stages, because a model call costs ~3.4s alone and ~9s under
+eight-way concurrency, while the platform promises an immediate reference
+number:
+
+1. **At intake**, the deterministic rules assign a priority in microseconds and
+   the complaint is created. The citizen has their reference number at once.
+2. **Immediately after**, the model reviews that decision on a background
+   worker. If it disagrees, the priority is updated and a normal
+   `priority_changed` event records the model, the new level, its deadline and
+   the reasoning.
+
+This is not ceremony — the model materially improves on the rules. A complaint
+reading *"the service does not reach any house in the entire village, we are
+cut off"* contains none of the emergency keywords, so the rules classified it
+as an inquiry at **low**; the model correctly raised it to **high**.
+
+Two safeguards sit around the model:
+
+- **An emergency floor.** If the wording contains an explicit emergency phrase
+  (`مستشفى`, `انقطاع كامل`, `طارئ`, `emergency`…) the priority cannot come out
+  below عالية whatever the model says. A model quietly demoting a hospital
+  outage would be worse than no model.
+- **A deterministic fallback.** Unreachable, slow, or an unparseable answer, and
+  the rule-based classifier decides instead. Intake never fails because a local
+  model is not running.
+
+### Why model work gets its own thread
+
+`app/tasks.py` runs model calls on one dedicated worker behind a bounded queue.
+FastAPI's `BackgroundTasks` were the obvious home, but they share the threadpool
+that serves sync endpoints: sixteen concurrent submissions meant sixteen threads
+blocked on Ollama and ordinary requests could not get a worker. Ollama
+serialises internally anyway, so a second worker would buy nothing — what this
+buys is the guarantee that no AI backlog can touch request handling.
+
+The review also never holds a database transaction across the model call. It
+reads, releases, calls the model, then reopens a write transaction lasting
+microseconds. Holding SQLite's single write lock for 3.4 seconds made every
+concurrent submission fail with `database is locked`.
+
 ## Endpoints
 
 ### Meta
@@ -203,6 +310,12 @@ random UUID name so a hostile filename can never escape the upload directory.
 
 Omits the citizen's name, phone and email, so a reference number alone never
 leaks contact details. Lookup is case-insensitive.
+
+### Assistant
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/ai/health` | Whether the assistant can answer, and on which models |
+| POST | `/api/chat` | Answer a question from the knowledge base, with sources |
 
 ### Dashboard
 | Method | Path | Purpose |
