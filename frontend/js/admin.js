@@ -806,15 +806,93 @@ const Admin = (() => {
 
   /* ----------------------------------------------------------------- tabs */
 
+  // The order they appear in the sidebar. The sign of the difference between
+  // two indices is the direction of travel, which is what the transition
+  // encodes: move down the list and the new section arrives from below.
+  const TAB_ORDER = ['dashboard', 'inbox'];
+
+  const TAB_TITLES = { dashboard: 'لوحة المؤشرات', inbox: 'الشكاوى الواردة' };
+
+  // Reused across switches so a fast double-click continues from wherever the
+  // last transition had reached instead of restarting from the offset.
+  let viewSpring = null;
+  let markerSpring = null;
+
+  /* Slides the new section in from the direction it lives in. Going from
+     لوحة المؤشرات down to الشكاوى الواردة, the inbox rises from below; going
+     back up, the dashboard drops in from above. The motion says which way you
+     moved, not merely that something changed. */
+  function revealView(node, direction) {
+    const offset = 18 * direction;
+    const paint = (t) => {
+      node.style.transform = `translate3d(0, ${((1 - t) * offset).toFixed(2)}px, 0)`;
+      node.style.opacity = t.toFixed(3);
+    };
+    if (!viewSpring) viewSpring = Motion.spring({ from: 0, precision: 0.001 });
+    viewSpring.stop();
+    viewSpring.onUpdate = paint;
+    viewSpring.value = 0;
+    viewSpring.velocity = 0;
+    paint(0);
+    viewSpring.to(1, { preset: 'ui' });
+  }
+
+  /* The gold bar travels between the two items rather than being redrawn on
+     whichever is active. One object moving reads as continuity; two objects
+     appearing and disappearing reads as a jump. */
+  function moveMarker(animate = true) {
+    const marker = document.getElementById('admin-side-marker');
+    const active = document.querySelector('[data-admin-tab].is-active');
+    if (!marker || !active) return;
+
+    // Below 900px the sidebar becomes a horizontal strip and a vertical bar
+    // would be meaningless; CSS restores an underline there instead.
+    if (window.matchMedia('(max-width: 900px)').matches) {
+      marker.hidden = true;
+      return;
+    }
+    marker.hidden = false;
+    marker.style.height = `${active.offsetHeight}px`;
+
+    const paint = (y) => { marker.style.transform = `translate3d(0, ${y.toFixed(2)}px, 0)`; };
+    if (!markerSpring) {
+      markerSpring = Motion.spring({ from: active.offsetTop, onUpdate: paint });
+    }
+    markerSpring.onUpdate = paint;
+    if (animate) markerSpring.to(active.offsetTop, { preset: 'ui' });
+    else markerSpring.set(active.offsetTop);
+  }
+
   function setTab(tab) {
+    const previous = state.tab;
     state.tab = tab;
     closeFocus();
     document.getElementById('admin-dashboard-view').hidden = tab !== 'dashboard';
     document.getElementById('admin-inbox-view').hidden = tab !== 'inbox';
     document.querySelectorAll('[data-admin-tab]').forEach((item) =>
       item.classList.toggle('is-active', item.dataset.adminTab === tab));
-    document.getElementById('admin-title').textContent =
-      tab === 'inbox' ? 'الشكاوى الواردة' : 'لوحة المؤشرات';
+
+    const heading = document.getElementById('admin-title');
+    heading.textContent = TAB_TITLES[tab] || TAB_TITLES.dashboard;
+
+    if (previous !== tab) {
+      const direction = Math.sign(TAB_ORDER.indexOf(tab) - TAB_ORDER.indexOf(previous));
+      revealView(
+        document.getElementById(tab === 'inbox' ? 'admin-inbox-view' : 'admin-dashboard-view'),
+        direction || 1,
+      );
+      // The heading belongs to the section, so it travels with it.
+      const paintHeading = (t) => {
+        heading.style.transform =
+          `translate3d(0, ${((1 - t) * 8 * (direction || 1)).toFixed(2)}px, 0)`;
+        heading.style.opacity = t.toFixed(3);
+      };
+      paintHeading(0);
+      Motion.spring({ from: 0, precision: 0.001, onUpdate: paintHeading })
+        .to(1, { preset: 'ui' });
+    }
+
+    moveMarker(previous !== tab);
     if (tab === 'inbox') loadTable();
   }
 
@@ -822,6 +900,9 @@ const Admin = (() => {
      refreshed unconditionally by App.refreshDashboard(); this only needs to
      refresh the table when the inbox tab is the one currently showing. */
   function onEnter() {
+    // offsetTop is only measurable once the screen is actually displayed,
+    // so the marker is placed on entry rather than at init.
+    moveMarker(false);
     if (state.tab === 'inbox') loadTable();
   }
 
@@ -890,6 +971,10 @@ const Admin = (() => {
     });
 
     document.getElementById('filter-clear').addEventListener('click', clearFilters);
+
+    // Crossing the 900px breakpoint swaps the sidebar between a column and
+    // a strip, which changes whether the travelling bar applies at all.
+    window.addEventListener('resize', () => moveMarker(false));
 
     document.getElementById('export-csv').addEventListener('click', () => {
       window.open(API.csvUrl({ ...filterParams(), q: state.query || undefined }), '_blank');

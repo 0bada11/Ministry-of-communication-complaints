@@ -564,6 +564,7 @@ input, select, textarea, button { font-family: inherit; }
   grid-template-columns: 212px minmax(0, 1fr);
 }
 .admin-side {
+  position: relative;   /* anchors the travelling marker */
   background: var(--forest-900);
   padding: 26px 0;
   display: flex;
@@ -574,11 +575,27 @@ input, select, textarea, button { font-family: inherit; }
 .admin-side-item { padding: 12px 20px; color: #a9bab5; font-size: 14px; }
 .admin-side-item--nav { cursor: pointer; }
 .admin-side-item--nav:hover { color: #d5e0dd; }
+.admin-side-item {
+  /* The colour change is a cross-fade; the gold bar is a separate element
+     that slides, so the two halves of "this is selected now" stay in step. */
+  transition: background-color 220ms ease-out, color 220ms ease-out;
+}
 .admin-side-item.is-active {
   background: rgba(185, 167, 121, .16);
   color: #fff;
-  border-right: 3px solid var(--gold-400);
 }
+/* One bar for the whole list, moved by a spring rather than redrawn per item.
+   Only meaningful while the sidebar is a vertical column. */
+.admin-side-marker {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 3px;
+  background: var(--gold-400);
+  border-radius: 2px 0 0 2px;
+  pointer-events: none;
+}
+.admin-side-marker[hidden] { display: none; }
 .admin-side-user {
   margin-top: auto;
   padding: 16px 20px;
@@ -1229,6 +1246,7 @@ input, select, textarea, button { font-family: inherit; }
   .admin-side-head, .admin-side-user { display: none; }
   .admin-side-item { white-space: nowrap; }
   .admin-side-item.is-active { border-right: 0; border-bottom: 3px solid var(--gold-400); }
+  .admin-side-marker { display: none; }
   .topbar, .masthead, .sitefoot { padding-left: 18px; padding-right: 18px; }
   .masthead { flex-direction: column; align-items: stretch; gap: 0; }
   .mainnav { justify-content: center; }
@@ -1279,6 +1297,11 @@ input, select, textarea, button { font-family: inherit; }
   z-index: 45;
 }
 .chat-launcher:hover { background: var(--forest-900); }
+/* Same corner as the panel, so the two read as one object transforming. */
+.chat-launcher { transform-origin: bottom left; }
+/* Hinted only while the open/close spring is live. */
+.chat-panel.is-animating,
+.chat-launcher.is-animating { will-change: transform, opacity; }
 .chat-launcher-dot {
   width: 7px;
   height: 7px;
@@ -1290,6 +1313,9 @@ input, select, textarea, button { font-family: inherit; }
   position: fixed;
   bottom: 24px;
   left: 24px;
+  /* The launcher sits at exactly this corner, so the panel scales out of the
+     button that opened it rather than out of its own middle. */
+  transform-origin: bottom left;
   width: 380px;
   max-width: calc(100vw - 32px);
   height: 540px;

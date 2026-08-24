@@ -199,6 +199,23 @@ What actually moves:
   time data arrives, and a refresh landing mid-flight has nothing to jump from.
   Bars scale rather than resize, so it stays a compositor-only transform.
 - **Figures count** to their new value instead of snapping.
+- **The assistant grows out of its launcher.** Panel and button share the same
+  bottom-left `transform-origin`, so opening reads as one object becoming
+  another rather than a card appearing over a button: the panel scales up from
+  0.9 and rises the last 12px while the launcher recedes to 0.86 and fades.
+  Closing retraces the same path. Because it is one retargeted spring, clicking
+  mid-close reverses from wherever the panel is, at its current speed —
+  measured mid-flight at 0.555 travelling 5.24/s, a reversal carried it forward
+  to 0.587 before turning, instead of snapping back.
+- **Switching admin section moves in the direction you moved.** The two tabs
+  are stacked in the sidebar, so travelling down the list brings الشكاوى
+  الواردة up from below (starts +18px) and travelling back up drops لوحة
+  المؤشرات in from above (starts −18px). The heading travels with its section.
+  The gold indicator is a single bar that slides between the two items rather
+  than being redrawn on whichever is active — one object moving reads as
+  continuity where two appearing and disappearing reads as a jump. Below 900px
+  the sidebar becomes a horizontal strip, where a vertical bar would mean
+  nothing, so CSS restores an underline and the bar hides itself.
 
 Accessibility is handled at the source: `prefers-reduced-motion` makes every
 spring land immediately (state still changes, travel does not), and

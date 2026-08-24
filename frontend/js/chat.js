@@ -29,12 +29,26 @@ const Chat = (() => {
 
   /* ------------------------------------------------------------ rendering */
 
+  /* A message that simply appears is easy to miss in a log you are already
+     reading. A short rise draws the eye to the new line without animating the
+     whole transcript. */
+  function enter(node, distance = 8) {
+    const paint = (t) => {
+      node.style.transform = `translate3d(0, ${((1 - t) * distance).toFixed(2)}px, 0)`;
+      node.style.opacity = t.toFixed(3);
+    };
+    paint(0);
+    Motion.spring({ from: 0, precision: 0.001, onUpdate: paint }).to(1, { preset: 'ui' });
+    return node;
+  }
+
   function bubble(role, text, modifier = '') {
     const node = el('div', {
       class: `chat-msg is-${role}${modifier ? ` ${modifier}` : ''}`,
       text,
     });
     document.getElementById('chat-log').append(node);
+    enter(node);
     scrollToEnd();
     return node;
   }
@@ -42,8 +56,9 @@ const Chat = (() => {
   function sourcesLine(sources) {
     if (!sources.length) return;
     const names = sources.slice(0, 3).map((s) => s.title).join(' · ');
-    document.getElementById('chat-log').append(
-      el('div', { class: 'chat-sources', text: `المصدر: ${names}` }));
+    const node = el('div', { class: 'chat-sources', text: `المصدر: ${names}` });
+    document.getElementById('chat-log').append(node);
+    enter(node, 5);
     scrollToEnd();
   }
 
@@ -113,28 +128,86 @@ const Chat = (() => {
 
   /* ------------------------------------------------------------ open/close */
 
+  /* One spring drives the whole open/close. The panel scales out of the
+     launcher — both are anchored to the same corner with the same
+     transform-origin — while the launcher itself recedes, so it reads as one
+     object becoming another rather than two things swapping places.
+
+     Retargeting the spring rather than restarting it is what makes a rapid
+     click-click-click follow the pointer instead of queueing: the reverse
+     starts from wherever the panel currently is, at its current speed. */
+  let openness = 0;
+
+  const openSpring = Motion.spring({
+    from: 0,
+    precision: 0.001,
+    onUpdate: (value) => { openness = value; paintPanel(); },
+    onRest: () => {
+      const { panel, launcher } = shell();
+      panel.classList.remove('is-animating');
+      launcher.classList.remove('is-animating');
+      if (openness < 0.01) {
+        panel.hidden = true;
+        launcher.focus();
+      }
+    },
+  });
+
+  function shell() {
+    return {
+      panel: document.getElementById('chat-panel'),
+      launcher: document.getElementById('chat-launcher'),
+    };
+  }
+
+  function paintPanel() {
+    const { panel, launcher } = shell();
+    // Rises the last few pixels as it scales up, so it arrives rather than
+    // simply inflating in place.
+    const lift = (1 - openness) * 12;
+    panel.style.transform =
+      `translate3d(0, ${lift.toFixed(2)}px, 0) scale(${Motion.lerp(0.9, 1, openness).toFixed(4)})`;
+    panel.style.opacity = openness.toFixed(3);
+
+    launcher.style.transform = `scale(${Motion.lerp(1, 0.86, openness).toFixed(4)})`;
+    launcher.style.opacity = (1 - openness).toFixed(3);
+    // Stops the fading launcher swallowing clicks meant for the open panel.
+    launcher.style.pointerEvents = openness > 0.5 ? 'none' : '';
+  }
+
   function open() {
-    const panel = document.getElementById('chat-panel');
+    const { panel, launcher } = shell();
     panel.hidden = false;
-    document.getElementById('chat-launcher').setAttribute('aria-expanded', 'true');
+    panel.classList.add('is-animating');
+    launcher.classList.add('is-animating');
+    launcher.setAttribute('aria-expanded', 'true');
+
     if (!opened) {
       opened = true;
       bubble('bot', GREETING);
       renderSuggestions();
     }
+    paintPanel();
+    // Clicked open, so no momentum to express: settle without overshoot.
+    openSpring.to(1, { preset: 'ui' });
     document.getElementById('chat-input').focus();
   }
 
   function close() {
-    document.getElementById('chat-panel').hidden = true;
-    const launcher = document.getElementById('chat-launcher');
+    const { panel, launcher } = shell();
+    if (panel.hidden) return;
+    panel.classList.add('is-animating');
+    launcher.classList.add('is-animating');
     launcher.setAttribute('aria-expanded', 'false');
-    launcher.focus();
+    // Leaves the way it came: back down into the launcher.
+    openSpring.to(0, { preset: 'ui' });
   }
 
   function toggle() {
-    if (document.getElementById('chat-panel').hidden) open();
-    else close();
+    // Reads the spring, not the `hidden` flag: mid-close the panel is still
+    // visible, and a click then should reverse it rather than do nothing.
+    if (openSpring.target >= 0.5) close();
+    else open();
   }
 
   /* ----------------------------------------------------------------- init */
