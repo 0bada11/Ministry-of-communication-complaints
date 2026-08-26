@@ -844,6 +844,14 @@ input, select, textarea, button { font-family: inherit; }
   white-space: nowrap;
 }
 .filter-chip.is-active { background: var(--forest-800); color: #fff; border-color: var(--forest-800); }
+/* Separated from the status chips because it filters on a different axis:
+   where a complaint is filed, not what state it is in. */
+.filter-chip.is-archive { margin-inline-start: 6px; border-style: dashed; }
+.filter-chip.is-archive.is-active {
+  background: var(--muted, #5a6a66);
+  border-color: var(--muted, #5a6a66);
+  border-style: solid;
+}
 
 .mini-select {
   border: 1px solid rgba(5, 66, 57, .2);
@@ -883,7 +891,7 @@ input, select, textarea, button { font-family: inherit; }
   justify-content: center;
 }
 .table-filters-row {
-  padding: 0 18px 14px;
+  padding: 14px 18px 14px;
   border-bottom: 1px solid var(--line);
   display: flex;
   gap: 8px;
@@ -1043,6 +1051,18 @@ input, select, textarea, button { font-family: inherit; }
   cursor: pointer;
   white-space: nowrap;
 }
+.detail-actions .archive {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  padding: 11px 14px;
+  font-size: 13.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.detail-actions .archive:hover { color: var(--forest-800); border-color: var(--forest-800); }
+
 .detail-attachments { margin-bottom: 18px; display: flex; flex-direction: column; gap: 6px; }
 .detail-attachment {
   display: flex;

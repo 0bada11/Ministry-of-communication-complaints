@@ -46,7 +46,8 @@ CREATE TABLE IF NOT EXISTS complaints (
     created_at     TEXT NOT NULL,
     updated_at     TEXT NOT NULL,
     resolved_at    TEXT,
-    closed_at      TEXT
+    closed_at      TEXT,
+    archived_at    TEXT
 );
 
 CREATE TABLE IF NOT EXISTS attachments (
@@ -151,6 +152,15 @@ def _ensure_columns(conn: sqlite3.Connection) -> None:
     }
     if "location_detail" not in complaint_columns:
         conn.execute("ALTER TABLE complaints ADD COLUMN location_detail TEXT")
+    if "archived_at" not in complaint_columns:
+        conn.execute("ALTER TABLE complaints ADD COLUMN archived_at TEXT")
+    # Indexed here rather than in SCHEMA: executescript runs before this
+    # function, so on a database predating the column the CREATE INDEX would
+    # fire against a column that does not exist yet.
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_complaints_archived"
+        " ON complaints(archived_at)"
+    )
 
     department_columns = {
         row["name"] for row in conn.execute("PRAGMA table_info(departments)")

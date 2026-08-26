@@ -17,6 +17,7 @@ from .db import UPLOAD_DIR
 from .domain import (
     ALLOWED_TRANSITIONS,
     FLOW,
+    TERMINAL,
     GOVERNORATES,
     LABELS,
     ROUTING,
@@ -245,7 +246,7 @@ def refine_priority(complaint_id: int) -> str | None:
     if not complaint:
         return None
     # A complaint already dealt with should not have its priority churned.
-    if complaint["status"] in (Status.RESOLVED.value, Status.CLOSED.value):
+    if complaint["status"] in {s.value for s in TERMINAL}:
         return None
 
     # 2. Call the model with no database connection open at all.
@@ -266,7 +267,7 @@ def refine_priority(complaint_id: int) -> str | None:
         current = repo.get_complaint(conn, complaint_id)
         if not current or current["priority"] != complaint["priority"]:
             return None
-        if current["status"] in (Status.RESOLVED.value, Status.CLOSED.value):
+        if current["status"] in {s.value for s in TERMINAL}:
             return None
 
         repo.update_complaint(conn, complaint_id, {"priority": graded["priority"].value})
@@ -304,6 +305,8 @@ def apply_update(conn: sqlite3.Connection, complaint: dict, payload) -> dict:
             # Closing something never marked resolved still needs a resolution time.
             if not complaint["resolved_at"]:
                 changes["resolved_at"] = repo.now()
+        elif payload.status is Status.ARCHIVED:
+            changes["archived_at"] = repo.now()
         repo.add_event(
             conn, complaint_id, "status_changed", field="status",
             old_value=complaint["status"], new_value=payload.status.value,
@@ -392,14 +395,15 @@ def escalate_overdue(conn: sqlite3.Connection) -> list[int]:
     escalated = []
     for row in repo.open_complaints_with_age(conn):
         current = Priority(row["priority"])
-        new = escalate_priority(row["hours_open"], current)
+        waited = row["hours_at_priority"]
+        new = escalate_priority(waited, current, ComplaintType(row["type"]))
         if new is current:
             continue
         repo.update_complaint(conn, row["id"], {"priority": new.value})
         repo.add_event(
             conn, row["id"], "priority_changed", field="priority",
             old_value=current.value, new_value=new.value,
-            note=f"تصعيد تلقائي بعد {round(row['hours_open'])} ساعة دون حل",
+            note=f"تصعيد تلقائي بعد {round(waited)} ساعة على هذه الأولوية دون حل",
             actor="system",
         )
         escalated.append(row["id"])

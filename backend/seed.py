@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 from app import repository as repo, services
 from app.db import get_db, init_db
-from app.domain import GOVERNORATES, Priority, Status
+from app.domain import GOVERNORATES, Status
 from app.schemas import ComplaintCreate, ComplaintUpdate
 
 # Spread across all twelve categories so every one of the seven entities has
@@ -181,7 +181,12 @@ def _advance(conn, complaint_id: int, status: Status, age_days: float) -> None:
                 "تم إصلاح العطل واستعادة الخدمة بالكامل."
                 if status is Status.RESOLVED else None
             ),
-            priority=random.choice(list(Priority)) if random.random() < 0.3 else None,
+            # No priority here on purpose. A random override reassigns a
+            # priority that has nothing to do with what the complaint says,
+            # which is how the demo ended up showing "بطء شديد في السرعة" as
+            # Low — a staff decision the seed invented, not a triage result.
+            # Leaving it unset lets triage and the escalation sweep own the
+            # priority, which is the behaviour the demo is meant to show.
         ),
     )
     elapsed_days = random.uniform(*STEP_HOURS[status]) / 24

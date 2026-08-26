@@ -97,6 +97,10 @@ class ComplaintOut(BaseModel):
     updated_at: datetime
     resolved_at: datetime | None
     closed_at: datetime | None
+    # Stamped when the complaint was last filed away. Like closed_at, it is a
+    # record of when it happened, not a claim about the current state — the
+    # status is what says whether it is in the archive now.
+    archived_at: datetime | None = None
     attachments: list[AttachmentOut] = []
     events: list[EventOut] = []
 
@@ -115,6 +119,7 @@ class ComplaintSummary(BaseModel):
     department: DepartmentOut | None
     assignee: str | None
     attachment_count: int
+    archived_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 

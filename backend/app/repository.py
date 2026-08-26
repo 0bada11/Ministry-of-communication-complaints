@@ -9,6 +9,8 @@ from .domain import (
     SLA_HOURS,
     SLA_WARNING_RATIO,
     STATUS_COLORS,
+    TERMINAL,
+    TERMINAL_SQL,
     TYPE_COLORS,
     ComplaintType,
     Status,
@@ -181,17 +183,27 @@ def delete_complaint(conn: sqlite3.Connection, complaint_id: int) -> None:
 
 
 def open_complaints_with_age(conn: sqlite3.Connection) -> list[dict]:
-    """Open, not-yet-high-priority complaints, with how long each has waited.
+    """Open, not-yet-high complaints with how long they have held their priority.
 
-    Feeds the automatic priority escalation sweep — closed and already-high
-    complaints are excluded up front since neither can escalate further.
+    The clock restarts at the last priority change, not at submission: the
+    escalation ladder is meant to be climbed one rung per SLA window, and a
+    clock that never resets would let a single stale complaint climb every rung
+    on consecutive sweeps.
+
+    Closed and already-high complaints are excluded up front since neither can
+    escalate further.
     """
     rows = conn.execute(
-        """
-        SELECT id, priority,
-               (julianday('now') - julianday(created_at)) * 24.0 AS hours_open
-        FROM complaints
-        WHERE status NOT IN ('resolved', 'closed') AND priority != 'high'
+        f"""
+        SELECT c.id, c.priority, c.type,
+               (julianday('now') - julianday(COALESCE(
+                   (SELECT MAX(e.created_at) FROM events e
+                     WHERE e.complaint_id = c.id
+                       AND e.action = 'priority_changed'),
+                   c.created_at
+               ))) * 24.0 AS hours_at_priority
+        FROM complaints c
+        WHERE c.status NOT IN ({TERMINAL_SQL}) AND c.priority != 'high'
         """
     ).fetchall()
     return [dict(r) for r in rows]
@@ -224,13 +236,24 @@ def search_complaints(
     priority: list[str] | None = None,
     department_code: str | None = None,
     assignee: str | None = None,
+    archived: bool | None = False,
     q: str | None = None,
     sort: str = "created_at",
     order: str = "desc",
     page: int = 1,
     per_page: int = 20,
 ) -> tuple[list[dict], int]:
-    """Filtered, sorted, paginated list. Returns (rows, total_matching)."""
+    """Filtered, sorted, paginated list. Returns (rows, total_matching).
+
+    `archived` is a three-state filter, not a boolean: False (the default)
+    hides archived complaints, True shows only them, and None ignores the
+    distinction entirely. Defaulting to False is what keeps the archive out of
+    the working queue without every caller having to remember to ask.
+
+    It filters on the status itself rather than on `archived_at`, which is only
+    a stamp of when the complaint was last filed and — like `closed_at` — is
+    never cleared when the complaint comes back out.
+    """
     where: list[str] = []
     params: dict = {}
 
@@ -244,6 +267,10 @@ def search_complaints(
     add_in("status", status, "st")
     add_in("type", type_, "ty")
     add_in("priority", priority, "pr")
+
+    if archived is not None:
+        where.append("c.status = :arch" if archived else "c.status != :arch")
+        params["arch"] = Status.ARCHIVED.value
 
     if department_code:
         where.append("d.code = :dept")
@@ -361,7 +388,7 @@ def _overdue_open(conn: sqlite3.Connection) -> int:
     return int(conn.execute(
         f"""
         SELECT COUNT(*) FROM complaints
-        WHERE status NOT IN ('resolved', 'closed')
+        WHERE status NOT IN ({TERMINAL_SQL})
           AND (julianday('now') - julianday(created_at)) * 24.0
               > CASE priority {targets} ELSE 72 END
         """
@@ -400,9 +427,7 @@ def stats(conn: sqlite3.Connection, recent_days: int = 14) -> dict:
         by_status.get(s.value, 0)
         for s in (Status.NEW, Status.ASSIGNED, Status.IN_PROGRESS)
     )
-    resolved_count = by_status.get(Status.RESOLVED.value, 0) + by_status.get(
-        Status.CLOSED.value, 0
-    )
+    resolved_count = sum(by_status.get(s.value, 0) for s in TERMINAL)
 
     avg_hours = conn.execute(
         "SELECT AVG((julianday(resolved_at) - julianday(created_at)) * 24.0)"

@@ -17,6 +17,7 @@ const Admin = (() => {
     in_progress: ['#dfeae6', '#0d6a5c'],
     resolved: ['#dceee1', '#1d6b3a'],
     closed: ['#ececec', '#5a5a5a'],
+    archived: ['#e4e4e4', '#6f6f6f'],
   };
   const EVENT_DOTS = {
     created: '#428177',
@@ -41,6 +42,7 @@ const Admin = (() => {
     { key: 'in_progress', label: 'قيد المعالجة' },
     { key: 'resolved', label: 'تم الحل' },
     { key: 'closed', label: 'مغلقة' },
+    { key: 'archived', label: 'الأرشيف', archive: true },
   ];
 
   const state = {
@@ -279,19 +281,22 @@ const Admin = (() => {
 
   function renderStatusChips() {
     const host = clear(document.getElementById('status-chips'));
-    STATUS_CHIPS.forEach((chip) =>
+    STATUS_CHIPS.forEach((chip) => {
       host.append(el('button', {
         type: 'button',
-        class: `filter-chip${state.status === chip.key ? ' is-active' : ''}`,
+        class: `filter-chip${state.status === chip.key ? ' is-active' : ''}`
+             + `${chip.archive ? ' is-archive' : ''}`,
         text: chip.label,
         onclick: () => {
           state.status = chip.key;
           state.page = 1;
+          state.selectedId = null;
           renderStatusChips();
           updateFilterUI();
           loadTable();
         },
-      })));
+      }));
+    });
   }
 
   function activeFilterCount() {
@@ -344,7 +349,13 @@ const Admin = (() => {
   function renderRows(page) {
     const host = clear(document.getElementById('tbl-body'));
     if (!page.items.length) {
-      host.append(el('div', { class: 'tbl-empty', text: 'لا توجد شكاوى مطابقة للبحث.' }));
+      host.append(el('div', {
+        class: 'tbl-empty',
+        // An empty archive is a normal state, not a failed search.
+        text: state.status === 'archived'
+          ? 'الأرشيف فارغ. تُنقل الشكاوى إلى هنا بعد إغلاقها.'
+          : 'لا توجد شكاوى مطابقة للبحث.',
+      }));
     }
     page.items.forEach((row) => {
       const [background, foreground] = STATUS_BADGE[row.status];
@@ -713,7 +724,11 @@ const Admin = (() => {
         type: 'button',
         class: 'advance',
         disabled: !next,
-        text: next ? `تحديث الحالة إلى «${App.statusLabel(next)}»` : 'الشكوى مغلقة',
+        // Once the workflow has run out, say which end state it actually
+        // reached — an archived complaint is not "مغلقة" any more.
+        text: next
+          ? `تحديث الحالة إلى «${App.statusLabel(next)}»`
+          : `الشكوى ${App.statusLabel(complaint.status)}`,
         onclick: () => advance(complaint, next),
       }),
       el('button', {
@@ -722,6 +737,17 @@ const Admin = (() => {
         text: 'إعادة تحويل',
         onclick: () => reroute(complaint),
       }),
+      // Archiving is a transition like any other, but not the *next* one, so
+      // it gets its own quieter button instead of riding the advance action.
+      // Offered strictly where the API allows it: closed, or already archived.
+      complaint.status === 'closed' || complaint.status === 'archived'
+        ? el('button', {
+          type: 'button',
+          class: 'archive',
+          text: complaint.status === 'archived' ? 'إخراج من الأرشيف' : 'نقل إلى الأرشيف',
+          onclick: () => setArchived(complaint, complaint.status !== 'archived'),
+        })
+        : null,
     ]));
 
     if (complaint.attachments.length) {
@@ -768,6 +794,31 @@ const Admin = (() => {
     try {
       renderDetail(await API.update(complaint.id, body));
       toast(`تم تحديث الحالة إلى «${App.statusLabel(next)}».`);
+      await Promise.all([loadTable(), App.refreshDashboard()]);
+    } catch (error) {
+      toast(error.message, true);
+    }
+  }
+
+  /* Archiving moves the complaint out of whichever list is on screen, so the
+     detail panel is cleared rather than left showing a row that has just
+     vanished from the table beside it. */
+  async function setArchived(complaint, archiving) {
+    const body = { status: archiving ? 'archived' : 'closed', actor: App.STAFF_NAME };
+    if (archiving) {
+      const note = window.prompt('سبب الأرشفة (اختياري):', '');
+      // Cancel gives null; an empty string is a deliberate "no reason given".
+      if (note === null) return;
+      if (note) body.note = note;
+    }
+    try {
+      await API.update(complaint.id, body);
+      toast(archiving
+        ? 'تم نقل الشكوى إلى الأرشيف.'
+        : 'تمت إعادة الشكوى إلى قائمة العمل.');
+      state.selectedId = null;
+      closeFocus();
+      clear(document.getElementById('detail-card'));
       await Promise.all([loadTable(), App.refreshDashboard()]);
     } catch (error) {
       toast(error.message, true);

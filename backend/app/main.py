@@ -188,6 +188,11 @@ def list_complaints(
     priority: list[Priority] = Query(default=[]),
     department: str | None = None,
     assignee: str | None = None,
+    archived: bool | None = Query(
+        default=False,
+        description="false: hide archived (default) · true: archive only · null: both."
+                    " Ignored when status=archived is asked for explicitly.",
+    ),
     q: str | None = None,
     sort: str = "created_at",
     order: str = "desc",
@@ -195,7 +200,15 @@ def list_complaints(
     per_page: int = 20,
     conn: sqlite3.Connection = DB,
 ) -> PagedComplaints:
-    """Filter, search, sort and paginate complaints for the staff dashboard."""
+    """Filter, search, sort and paginate complaints for the staff dashboard.
+
+    Archived complaints are hidden unless asked for, so the default view is the
+    work still in front of staff. Naming the archived status outright counts as
+    asking — otherwise `?status=archived` would contradict the default and
+    return nothing at all.
+    """
+    if Status.ARCHIVED in status:
+        archived = None
     rows, total = repo.search_complaints(
         conn,
         status=[s.value for s in status],
@@ -203,6 +216,7 @@ def list_complaints(
         priority=[p.value for p in priority],
         department_code=department,
         assignee=assignee,
+        archived=archived,
         q=q,
         sort=sort,
         order=order,
@@ -227,6 +241,7 @@ def export_complaints(
     type: list[ComplaintType] = Query(default=[]),
     priority: list[Priority] = Query(default=[]),
     department: str | None = None,
+    archived: bool | None = Query(default=False),
     q: str | None = None,
     conn: sqlite3.Connection = DB,
 ) -> Response:
@@ -237,6 +252,7 @@ def export_complaints(
         type_=[t.value for t in type],
         priority=[p.value for p in priority],
         department_code=department,
+        archived=archived,
         q=q,
         per_page=100,
         page=1,
@@ -373,6 +389,26 @@ def chat(payload: ChatRequest) -> ChatReply:
 # ---------------------------------------------------------------------------
 
 # Mounted last so it never shadows an /api route. One server serves both.
+class RevalidatedStatic(StaticFiles):
+    """Serve the frontend with revalidation required.
+
+    StaticFiles sends ETag and Last-Modified but no Cache-Control, and a
+    response with neither Cache-Control nor Expires lets the browser guess how
+    long it stays fresh. The guess is usually a fraction of the file's age, so
+    a just-edited script can be cached for minutes and a plain reload never
+    asks the server for it — the page keeps running the previous build.
+
+    "no-cache" does not mean "do not cache": it means revalidate before use.
+    The ETag above still turns an unchanged file into a 304 with no body, so
+    this costs one conditional request per asset and never a stale screen.
+    """
+
+    def file_response(self, *args, **kwargs) -> Response:
+        response = super().file_response(*args, **kwargs)
+        response.headers.setdefault("Cache-Control", "no-cache")
+        return response
+
+
 FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
 if FRONTEND_DIR.is_dir():
-    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+    app.mount("/", RevalidatedStatic(directory=FRONTEND_DIR, html=True), name="frontend")

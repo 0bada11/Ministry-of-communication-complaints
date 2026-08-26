@@ -13,6 +13,9 @@ class Status(str, Enum):
     IN_PROGRESS = "in_progress"
     RESOLVED = "resolved"
     CLOSED = "closed"
+    # Filed away after closing. A workflow state like any other, but reached
+    # only from CLOSED and reversible back to it.
+    ARCHIVED = "archived"
 
 
 class Priority(str, Enum):
@@ -44,6 +47,10 @@ class ComplaintType(str, Enum):
 
 
 # The workflow the dashboard advances a complaint through, in order.
+#
+# ARCHIVED is deliberately absent: FLOW drives the dashboard's "advance to the
+# next step" button, and filing a finished complaint away is not the next step
+# of handling it. Archiving is its own action, from its own button.
 FLOW: list[Status] = [
     Status.NEW,
     Status.ASSIGNED,
@@ -52,13 +59,25 @@ FLOW: list[Status] = [
     Status.CLOSED,
 ]
 
+# States where no one is working the complaint any more. Escalation, SLA
+# pressure and AI re-grading all skip these, so they are named once here
+# rather than spelled out at each site.
+TERMINAL: frozenset[Status] = frozenset(
+    {Status.RESOLVED, Status.CLOSED, Status.ARCHIVED}
+)
+# The same set as SQL-quoted literals, for the queries that filter on it.
+TERMINAL_SQL: str = ", ".join(f"'{s.value}'" for s in TERMINAL)
+
 # Only these transitions are accepted; anything else is a 400.
 ALLOWED_TRANSITIONS: dict[Status, set[Status]] = {
     Status.NEW: {Status.ASSIGNED, Status.IN_PROGRESS, Status.CLOSED},
     Status.ASSIGNED: {Status.IN_PROGRESS, Status.RESOLVED, Status.CLOSED},
     Status.IN_PROGRESS: {Status.RESOLVED, Status.ASSIGNED, Status.CLOSED},
     Status.RESOLVED: {Status.CLOSED, Status.IN_PROGRESS},
-    Status.CLOSED: set(),
+    # Closing is no longer the end of the line: a closed complaint can be
+    # filed away, and pulled back out again if it was archived by mistake.
+    Status.CLOSED: {Status.ARCHIVED},
+    Status.ARCHIVED: {Status.CLOSED},
 }
 
 # The entities that actually receive complaints, with the problem domain each
@@ -167,22 +186,48 @@ SLA_HOURS: dict[Priority, int] = {
 SLA_WARNING_RATIO = 0.75
 
 
-def escalate_priority(hours_open: float, current: Priority) -> Priority:
-    """The priority an open complaint should carry, given how long it has waited.
+# One step up the ladder. High is the top; there is nowhere above it.
+_NEXT_PRIORITY: dict[Priority, Priority] = {
+    Priority.LOW: Priority.MEDIUM,
+    Priority.MEDIUM: Priority.HIGH,
+}
 
-    Reuses SLA_HOURS instead of a second set of magic numbers: waiting longer
-    than the Medium SLA already justifies High, and waiting longer than the
-    High SLA — the tightest window there is — justifies moving Low to Medium
-    even though it hasn't technically blown its own, much longer, deadline.
+# Types where age alone must never manufacture urgency. A suggestion that has
+# sat unread for a week is overdue, not critical, and letting it climb to High
+# puts it beside a hospital outage in every queue that sorts by priority.
+NO_AUTO_HIGH: frozenset[ComplaintType] = frozenset({ComplaintType.INQUIRY})
+
+
+def escalate_priority(
+    hours_at_priority: float,
+    current: Priority,
+    ctype: ComplaintType | None = None,
+) -> Priority:
+    """The priority a waiting complaint should carry, one step at a time.
+
+    The clock passed in is time spent *at the current priority*, not total age.
+    That distinction is what keeps the ladder from collapsing: measured against
+    total age, a complaint that just escalated is still just as old on the next
+    sweep a minute later, so it would climb again immediately and every stale
+    complaint would arrive at High regardless of what it said.
+
+    A complaint escalates only once it has used up the whole SLA window for the
+    priority it currently holds — its own window, not another level's. Judging a
+    Low complaint against the Medium deadline declared it maximally urgent 48
+    hours before its own deadline had even passed.
+
     Never used to lower a priority a human deliberately raised.
     """
     if current is Priority.HIGH:
         return current
-    if hours_open >= SLA_HOURS[Priority.MEDIUM]:
-        return Priority.HIGH
-    if hours_open >= SLA_HOURS[Priority.HIGH] and current is Priority.LOW:
-        return Priority.MEDIUM
-    return current
+    if hours_at_priority < SLA_HOURS[current]:
+        return current
+
+    promoted = _NEXT_PRIORITY[current]
+    if promoted is Priority.HIGH and ctype in NO_AUTO_HIGH:
+        return current
+    return promoted
+
 
 GOVERNORATES: list[str] = [
     "دمشق", "ريف دمشق", "حلب", "حمص", "حماة", "اللاذقية", "طرطوس",
@@ -198,6 +243,7 @@ LABELS: dict[str, dict[str, dict[str, str]]] = {
         Status.IN_PROGRESS: {"ar": "قيد المعالجة", "en": "In Progress"},
         Status.RESOLVED: {"ar": "تم الحل", "en": "Resolved"},
         Status.CLOSED: {"ar": "مغلقة", "en": "Closed"},
+        Status.ARCHIVED: {"ar": "مؤرشفة", "en": "Archived"},
     },
     "priority": {
         Priority.LOW: {"ar": "منخفضة", "en": "Low"},
@@ -243,6 +289,8 @@ STATUS_COLORS: dict[Status, str] = {
     Status.IN_PROGRESS: "#428177",
     Status.RESOLVED: "#988561",
     Status.CLOSED: "#cbcbcb",
+    # Greyer and flatter than "closed" — filed away, off the active board.
+    Status.ARCHIVED: "#9a9a9a",
 }
 
 # A single ramp from the darkest forest to the lightest sand, extending the
