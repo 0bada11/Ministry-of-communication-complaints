@@ -190,8 +190,12 @@
   },
   "active": "46b30e53cf00e611",
   "lastOpenFiles": [
-    "Ministry Complaints Explainer.mp4",
+    "backend/__pycache__/test_retrieval.cpython-311.pyc",
     "backend/data/complaints.db-wal",
+    "evaluation.md",
+    "evaluation.md.tmp.22028.8d91174f611b",
+    "backend/data/complaints.db-shm",
+    "Ministry Complaints Explainer.mp4",
     "README.md"
   ]
 }
