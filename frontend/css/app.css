@@ -39,7 +39,7 @@
   --success: #1d6b3a;
   --line: rgba(5, 66, 57, .12);
   --line-strong: rgba(5, 66, 57, .25);
-  --gold-line: rgba(185, 167, 121, .35);
+  --masthead-line: #4c6751;
   --display: 'Hayyakum', 'IBM Plex Sans Arabic', serif;
 }
 
@@ -79,7 +79,13 @@ input, select, textarea, button { font-family: inherit; }
   align-items: center;
   justify-content: space-between;
   gap: 32px;
-  box-shadow: 0 1px 0 var(--gold-line);
+  /* Drawn as a shadow so the line adds no height and nothing below it moves.
+     The stacking matters: .hero is a later sibling with an opaque background,
+     and without a stacking context of its own the header's shadow paints
+     underneath it and disappears. */
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 1px 0 var(--masthead-line);
 }
 .masthead-brand { display: flex; align-items: center; gap: 16px; padding: 18px 0; }
 .masthead-brand img { height: 44px; display: block; }
@@ -88,7 +94,11 @@ input, select, textarea, button { font-family: inherit; }
 .masthead-title { color: #fff; font-size: 15.5px; font-weight: 600; line-height: 1.2; }
 .masthead-sub { color: var(--gold-400); font-size: 12.5px; line-height: 1.2; }
 
-.mainnav { display: flex; gap: 4px; align-items: stretch; height: 100%; }
+/* align-self, not height:100% — the masthead centres its children, and a
+   percentage height against an auto-height flex parent does not resolve,
+   so the nav sat 3px short and its active underline never met the gold
+   line at the masthead's edge. Stretching makes the two touch. */
+.mainnav { display: flex; gap: 4px; align-items: stretch; align-self: stretch; }
 .mainnav button {
   background: transparent;
   color: #d5e0dd;
